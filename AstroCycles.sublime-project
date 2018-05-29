@@ -1,0 +1,135 @@
+{
+    "build_systems":
+    [
+        {
+            "file_regex": "^[ ]*File \"(...*?)\", line ([0-9]*)",
+            "name": "Anaconda Python Builder",
+            "selector": "source.python",
+            "shell_cmd": "\"C:\\Users\\wilso\\AppData\\Local\\Programs\\Python\\Python36-32\\python\" -u \"$file\""
+        }
+    ],
+    "folders":
+    [
+        {
+            "follow_symlinks": true,
+            "path": "C:\\Users\\wilso\\Documents\\astro\\V405 Aurigae"
+        }
+    ],
+    "settings":
+    {
+        "pep8_ignore":
+        [
+            "E501",
+            "E702",
+            "E402",
+            "E266"
+        ],  
+        "anaconda_linting": true,
+        "anaconda_linting_behaviour": "always",
+        "pep257": false,
+        "python_interpreter": "~wilso\\AppData\\Local\\Programs\\Python\\Python36-32\\python",
+        "test_command": "python -m unittest discover",
+        "use_pylint": false,
+        "validate_imports": true,
+        /*
+        Anaconda Tooltip Options
+        Sublime Text 3 supports tooltips since build 3070; if anaconda
+        runs in a ST3 installation equal to or newer than build 3070, it
+        can be configured to show tooltips for documentation and signatures.
+        The options below set how the tooltip looks.
+        */
+        "anaconda_tooltip_theme": "popup",
+
+        /*
+            If you set the following option as true, anaconda will display the
+            signatures of the methods in a floating popup.
+            *note*: this only has an effect if "display_signatures" is true.
+        */
+        "enable_signatures_tooltip": true,
+
+        /*
+            If you set the following option as true, anaconda will display the
+            documentation of modules, classes or methods in a floating popup.
+        */
+        "enable_docstrings_tooltip": true,
+
+        /*
+            If the option below is set as true, anaconda will merge the
+            outputs of display_signatures and show documentation.
+            *note*: This only has an effect if tooltips are enabled.
+        */
+        "merge_signatures_and_doc": true,
+
+        /*
+            If you set the following option as true, anaconda will display the
+            signatures of the methods you are using while typing
+        */
+        "display_signatures": true,
+
+        /*
+            Auto project switching
+            If you set this to true, anaconda will detect project switches and
+            will reconnect a new JsonServer with the switched project
+            configuration.
+        */
+        "auto_project_switch": true,
+
+        /*
+            Python Builder Options
+            If enabled, anaconda will add your configured interpreter (if any)
+            into your per-project `builder_systems` list if any, or create a
+            new one in case you don't define one yourself.
+            This is enabled by default; disable it if you experience slowdowns
+            when you switch between projects, and file an issue in GitHub.
+        */
+        "auto_python_builder_enabled": true,
+        
+        "anaconda_gutter_marks": true,
+
+        /*
+            If anaconda_gutter_marks is true, this determines what theme is used.
+            Theme 'basic' only adds dots and circles to gutter.
+            Other available themes are 'alpha', 'bright', 'dark', 'hard', "retina"
+            (for retina displays) and 'simple'. To see icons that will be used for
+            each theme check gutter_icon_themes folder in Anaconda package.
+        */
+        "anaconda_gutter_theme": "bright",
+
+        /*
+            If 'outline' (default), anaconda will outline error lines.
+            If 'fill', anaconda will fill the lines.
+            If 'solid_underline', anaconda will draw a solid underline below regions.
+            If 'stippled_underline', anaconda will draw a stippled underline below regions.
+            If 'squiggly_underline', anaconda will draw a squiggly underline below regions.
+            If 'none', anaconda will not draw anything on error lines.
+        */
+        "anaconda_linter_mark_style": "stippled_underline",
+
+        /*
+            If this is set to false, anaconda will not underline errors.
+        */
+        "anaconda_linter_underlines": true,
+
+        /*
+            If this is set to true, anaconda will show errors inline.
+        */
+        "anaconda_linter_phantoms": true,
+
+        /*
+            This determines what theme is phantoms used.
+        */
+        "anaconda_linter_phantoms_theme": "phantom",
+
+        /*
+            This determines what template is phantoms used.
+        */
+        "anaconda_linter_phantoms_template": "default",
+
+        /*
+            If anaconda_linter_show_errors_on_save is set to true, anaconda
+            will show a list of errors when you save the file.
+            This is disabled by default.
+        */
+        "anaconda_linter_show_errors_on_save": false
+    }
+}
