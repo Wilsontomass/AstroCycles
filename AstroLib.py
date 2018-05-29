@@ -7,6 +7,10 @@ from astropy.time import Time
 import numpy as np
 from math import floor, pi, sin, cos, tan
 from numpy import arctan
+import sys
+
+# Stop creating that pesky pycache folder
+sys.dont_write_bytecode = True
 
 
 # JD conversion function

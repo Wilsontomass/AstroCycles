@@ -4,6 +4,50 @@
 		"selected_items":
 		[
 			[
+				"number",
+				"numberOfSinusoids\tstatement"
+			],
+			[
+				"sinu",
+				"sinusoidParameters"
+			],
+			[
+				"in",
+				"index\tstatement"
+			],
+			[
+				"num",
+				"numberOfSinusoids\tparam"
+			],
+			[
+				"starti",
+				"startingParameters\tstatement"
+			],
+			[
+				"sin",
+				"sinusoidSum\tfunction"
+			],
+			[
+				"var",
+				"var"
+			],
+			[
+				"sinus",
+				"sinusoidSizer\tstatement"
+			],
+			[
+				"sum",
+				"sumVal"
+			],
+			[
+				"show",
+				"showpeaks"
+			],
+			[
+				"Erros",
+				"errors"
+			],
+			[
 				"upda",
 				"updateFileInfo\tfunction"
 			],
@@ -58,10 +102,6 @@
 			[
 				"guass",
 				"gaussVariables\tstatement"
-			],
-			[
-				"var",
-				"variables"
 			],
 			[
 				"inde",
@@ -234,10 +274,6 @@
 			[
 				"head",
 				"headerFont\tstatement"
-			],
-			[
-				"sin",
-				"sinusoid"
 			],
 			[
 				"sec",
@@ -456,10 +492,6 @@
 				"Checkbox"
 			],
 			[
-				"show",
-				"showSMA\tstatement"
-			],
-			[
 				"SM",
 				"SMAEnable\tstatement"
 			],
@@ -482,38 +514,6 @@
 			[
 				"wie",
 				"weight"
-			],
-			[
-				"calc",
-				"calcWeight\tfunction"
-			],
-			[
-				"bor",
-				"borderSmall\tstatement"
-			],
-			[
-				"panel",
-				"panelSizer\tstatement"
-			],
-			[
-				"Sizer",
-				"SizerFlags"
-			],
-			[
-				"A",
-				"Align\tmodule"
-			],
-			[
-				"ri",
-				"rightColumn\tstatement"
-			],
-			[
-				"right",
-				"rightColumn"
-			],
-			[
-				"des",
-				"destination\tstatement"
 			]
 		]
 	},
@@ -523,9 +523,18 @@
 			"file": "AstroCycles.py",
 			"settings":
 			{
-				"buffer_size": 99108,
+				"buffer_size": 105893,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "AstroCycles.sublime-project",
+			"settings":
+			{
+				"buffer_size": 4903,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
 			}
 		}
 	],
@@ -640,8 +649,14 @@
 		"side_bar_visible": false,
 		"status_bar_visible": false
 	},
+	"expanded_folders":
+	[
+		"/C/Users/wilso/Documents/GitHub/AstroCycles"
+	],
 	"file_history":
 	[
+		"/C/Users/wilso/Documents/GitHub/AstroCycles/AstroLib.py",
+		"/C/Users/wilso/Documents/GitHub/AstroCycles/AstroCycles.sublime-workspace",
 		"/C/Users/wilso/Documents/GitHub/AstroCycles/AstroCycles.sublime-project",
 		"/C/Users/wilso/Documents/GitHub/AstroCycles/AstroCycles.py",
 		"/C/Users/wilso/Google Drive/Shared Data/astronomy/V405 Aurigae/AstroCycles.sublime-project",
@@ -680,7 +695,7 @@
 	],
 	"find":
 	{
-		"height": 23.0
+		"height": 40.0
 	},
 	"find_in_files":
 	{
@@ -694,6 +709,17 @@
 		"case_sensitive": true,
 		"find_history":
 		[
+			"[0]",
+			"args",
+			"numberOfSinusoids",
+			"N",
+			"params_0",
+			"x",
+			"findPeaks",
+			"showpeaks",
+			"mainFrame.file",
+			"file",
+			"OminusC"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -720,28 +746,67 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 99108,
+						"buffer_size": 105893,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								0,
-								0
+								34833,
+								34833
 							]
 						],
 						"settings":
 						{
+							"auto_complete_triggers":
+							[
+								{
+									"characters": ".",
+									"selector": "source.python - string - comment - constant.numeric"
+								},
+								{
+									"characters": ".",
+									"selector": "source.python - string - constant.numeric"
+								}
+							],
 							"syntax": "Packages/Python/Python.sublime-syntax",
 							"tab_size": 4,
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 6930.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "AstroCycles.sublime-project",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 4903,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								4903,
+								4903
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JSON.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
 					"type": "text"
 				}
 			]
@@ -749,7 +814,7 @@
 	],
 	"incremental_find":
 	{
-		"height": 22.0
+		"height": 28.0
 	},
 	"input":
 	{
@@ -794,7 +859,7 @@
 	"project": "AstroCycles.sublime-project",
 	"replace":
 	{
-		"height": 42.0
+		"height": 52.0
 	},
 	"save_all_on_build": true,
 	"select_file":
@@ -832,7 +897,7 @@
 	"show_open_files": false,
 	"show_tabs": true,
 	"side_bar_visible": true,
-	"side_bar_width": 107.0,
+	"side_bar_width": 183.0,
 	"status_bar_visible": true,
 	"template_settings":
 	{
