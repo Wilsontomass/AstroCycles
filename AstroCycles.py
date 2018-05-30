@@ -1618,7 +1618,7 @@ class mainWindow(wx.Frame):
         self.plotOnMain = False
         wx.Frame.__init__(self, parent, title=title,
                           size=(windowWidth, windowHeight))
-        wx.Frame.SetMinSize(self, (1200, 800))
+        wx.Frame.SetMinSize(self, (1200, 600))
         self.CreateStatusBar()  # A Statusbar in the bottom of the window
         self.SetBackgroundColour("light gray")
 

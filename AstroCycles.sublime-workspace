@@ -640,6 +640,10 @@
 		"side_bar_visible": false,
 		"status_bar_visible": false
 	},
+	"expanded_folders":
+	[
+		"/C/Users/wilso/Documents/GitHub/AstroCycles"
+	],
 	"file_history":
 	[
 		"/C/Users/wilso/Documents/GitHub/AstroCycles/AstroCycles.sublime-project",
@@ -727,18 +731,21 @@
 						"selection":
 						[
 							[
-								0,
-								0
+								1423,
+								1423
 							]
 						],
 						"settings":
 						{
+							"SL.27.region_keys":
+							[
+							],
 							"syntax": "Packages/Python/Python.sublime-syntax",
 							"tab_size": 4,
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 559.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
@@ -778,6 +785,10 @@
 		]
 	},
 	"menu_visible": true,
+	"output.SublimeLinter":
+	{
+		"height": 0.0
+	},
 	"output.exec":
 	{
 		"height": 240.0
