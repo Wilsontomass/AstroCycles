@@ -164,7 +164,7 @@ def sort_key(list):
 
 # A function to help sort files in cronological order
 def file_sort_key(file):
-    return file.rawData.HJD[0]
+    return file.HJD[0]
 
 
 # Number checking function

@@ -67,22 +67,56 @@ dec_deg, dec_min, dec_sec = declination.split()
 obj = [ra_hr, ra_min, ra_sec, dec_deg, dec_min, dec_sec]
 
 
-# Mostly just for luls. this class is a box for data
-class data:
-
-    def __init__(self, parent):
-        self.reset()
-
-    def reset(self):
-        self.all = []
-        self.JD = []
-        self.HJD = []
-        self.var = []
-        self.error = []
-        self.airmass = []
+###### File manipulation, analysis, data gathering and data manipulation
 
 
-# Here we store the info for each file and modulate it
+# Function that adds files to the fileList
+def addFiles(fileDirectories):
+    changesMade = False
+    startingLength = len(fileList) + 1
+    firstRun = True if len(fileList) == 0 else False
+
+    # We try because perhaps there is only 1 file being added
+    try:
+        # Iterate through all the new dirs
+        for fileDir in fileDirectories:
+            alreadyExisting = False
+            # Check to make sure we dont already have this file in our list
+            for existingFile in fileList:
+                existingFileDir = existingFile.fileDir
+                if existingFileDir == fileDir:
+                    alreadyExisting = True
+
+            # if they dont exist, add them
+            if not alreadyExisting:
+                fileList.append(fileConstruct(fileDir))
+                changesMade = True
+
+    # Only 1 file
+    except TypeError:
+        try:
+            fileDir = fileDirectories
+            for existingFile in fileList:
+                existingFileDir = existingFile.fileDir
+                if existingFileDir == fileDirectories:
+                    alreadyExisting = True
+
+            if not alreadyExisting:
+                fileList.append(fileConstruct(fileDir))
+                changesMade = True
+        except TypeError:
+            return
+
+    if changesMade:
+        if firstRun:
+            mainFrame.enableStuff()
+        # Sort the fileList in chronological order
+        fileList.sort(key=al.file_sort_key)
+        # Place the mainwindow on the latest file
+        mainFrame.fileNumber.SetValue(str(startingLength))
+
+
+# Here we store the info for each file and some functions where it modifies itself
 class fileConstruct:
 
     # Initiate yourself damnit
@@ -121,7 +155,7 @@ class fileConstruct:
         self.foldX = []
         self.foldY = []
 
-        self.rawData = data(self)
+        self.resetData()
 
         # Analyze yourself
         if self.exists:
@@ -237,12 +271,12 @@ class fileConstruct:
     def gatherData(self):
 
         # Reset rawData
-        self.rawData.reset()
+        self.resetData()
         # set things to none if they should be None
         if self.errorColumn is None:
-            self.rawData.error = None
+            self.error = None
         if self.airmassColumn is None:
-            self.rawData.airmass = None
+            self.airmass = None
         # get our lines
         fileLines = self.getLines()
         # Iterate through each line
@@ -286,14 +320,14 @@ class fileConstruct:
                             HJD = al.trans(JD, obj)
 
                             # Save file data
-                            self.rawData.all.append([JD, var, error, airmass])
-                            self.rawData.JD.append(JD)
-                            self.rawData.var.append(var)
-                            self.rawData.error.append(error)
-                            self.rawData.airmass.append(airmass)
+                            self.all.append([JD, var, error, airmass])
+                            self.JD.append(JD)
+                            self.var.append(var)
+                            self.error.append(error)
+                            self.airmass.append(airmass)
 
                             # lol this should just work. HJD
-                            self.rawData.HJD.append(HJD)
+                            self.HJD.append(HJD)
 
                 else:
                     # Find JD
@@ -310,22 +344,22 @@ class fileConstruct:
                     # Rinse and repeat for error and airmass
                     if self.errorColumn is not None:
                         error = numberBox[self.errorColumn][0]
-                        self.rawData.error.append(error)
+                        self.error.append(error)
 
                     if self.airmassColumn is not None:
                         airmass = numberBox[self.airmassColumn][0]
-                        self.rawData.airmass.append(airmass)
+                        self.airmass.append(airmass)
 
                     # get HJD
                     HJD = al.trans(JD, obj)
 
                     # Save file data
-                    self.rawData.all.append([JD, var, error, airmass])
-                    self.rawData.JD.append(JD)
-                    self.rawData.var.append(var)
+                    self.all.append([JD, var, error, airmass])
+                    self.JD.append(JD)
+                    self.var.append(var)
 
                     # lol this should just work. HJD
-                    self.rawData.HJD.append(HJD)
+                    self.HJD.append(HJD)
 
     # A function to generate a folded dataset
     def fold(self, period, bins=750, cycles=2):
@@ -334,12 +368,12 @@ class fileConstruct:
         period = 1 / period
 
         # LOL check if the period is longer than the actuall dataset # FAIL
-        if period > (self.rawData.HJD[-1] - self.rawData.HJD[1]):
-            return self.rawData.HJD, self.rawData.var
+        if period > (self.HJD[-1] - self.HJD[1]):
+            return self.HJD, self.var
 
         # Gather data
-        xBox = self.rawData.HJD
-        yBox = self.rawData.var
+        xBox = self.HJD
+        yBox = self.var
 
         # initiate new xBox and yBox
         foldedX = []
@@ -414,7 +448,7 @@ class fileConstruct:
         # width = 20
 
         # use findpeaks to find peaks in 1d arrays of the var values, inverted bc mag is inverted
-        self.peakIndexes = find_peaks_cwt(np.array([x * -1 for x in self.rawData.var]), np.arange(min, max))
+        self.peakIndexes = find_peaks_cwt(np.array([x * -1 for x in self.var]), np.arange(min, max))
 
         # set showpeaks to true
         self.showPeaks = True
@@ -423,7 +457,7 @@ class fileConstruct:
     def OminusC(self, zeroPeriod):
         # O - C
         indexes = self.peakIndexes
-        x = self.rawData.HJD
+        x = self.HJD
         # convert the array to anumpy array
         x = np.array(x)
 
@@ -464,8 +498,708 @@ class fileConstruct:
         plt.scatter(cycles, observedMinusCalculated, color=(0, 0, 0.1, 0.75), marker="x")
         plt.show()
 
+    # a function to reset the saved data, for example when we want to collect data using new information
+    def resetData(self):
+        self.all = []
+        self.JD = []
+        self.HJD = []
+        self.var = []
+        self.error = []
+        self.airmass = []
 
-# Define File Drop Target class, no idea how this works
+
+###### Mainwindow
+
+
+# The class for the main window, the first thing you see when you boot up
+class mainWindow(wx.Frame):
+    """ We simply derive a new class of Frame. """
+
+    def __init__(self, parent, title):
+        self.file = None
+        self.plotOnMain = False
+        wx.Frame.__init__(self, parent, title=title,
+                          size=(windowWidth, windowHeight))
+        wx.Frame.SetMinSize(self, (1200, 600))
+        self.CreateStatusBar()  # A Statusbar in the bottom of the window
+        self.SetBackgroundColour("light gray")
+
+        # Setting up the menu.
+        filemenu = wx.Menu()
+
+        # wx.ID_ABOUT and wx.ID_EXIT are standard IDs provided by wxWidgets.
+        menuOpen = filemenu.Append(
+            wx.ID_OPEN, "&Open", " Open a file to analyze")
+        filemenu.AppendSeparator()
+        menuItem = filemenu.Append(
+            wx.ID_ABOUT, "&About", " Information about astroRedux")
+        filemenu.AppendSeparator()
+        menuExit = filemenu.Append(
+            wx.ID_EXIT, "E&xit", " Terminate the program")
+
+        # Creating the menubar.
+        menuBar = wx.MenuBar()
+        # Adding the "filemenu" to the MenuBar
+        menuBar.Append(filemenu, "&File")
+        self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
+
+        # Events
+        # Menu Items
+        self.Bind(wx.EVT_MENU, self.OnAbout, menuItem)
+        self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
+        self.Bind(wx.EVT_MENU, self.OnOpen, menuOpen)
+        # X TO CLOSE ALL
+        self.Bind(wx.EVT_CLOSE, self.OnExit)
+
+        ''' HERE THERE BE DRAGONS '''
+        ''' beyond this point is the layout data, tread with care '''
+
+        # Create the outerSizer
+        self.outerSizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Create the SuperSizer
+        self.superSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # Create the left column
+        self.leftColumn = wx.BoxSizer(wx.VERTICAL)
+
+        #### HEADER TEXT BOX
+
+        # Define a Text Control to receive Dropped Files
+        # Create a read-only Text Control
+        self.mainBox = wx.TextCtrl(self, -1, "Drag a .txt file here to begin processing",
+                                   style=wx.TE_MULTILINE | wx.HSCROLL | wx.TE_READONLY)
+        # Make this control a File Drop Target
+        # Create a File Drop Target object
+        dt3 = FileDropTarget(self.mainBox)
+        # Link the Drop Target Object to the Text Control
+        self.mainBox.SetDropTarget(dt3)
+        # Add it to the left column
+        self.leftColumn.Add(self.mainBox, 2, wx.EXPAND)
+
+        #### GRAPH CANVAS
+
+        # Create the matplotlib canvas
+        self.figure = Figure()
+        self.axes = self.figure.add_subplot(111)
+        self.canvas = FigureCanvas(self, -1, self.figure)
+        self.canvas.mpl_connect('motion_notify_event', self.on_move)
+
+        # Add it to the left column
+        self.leftColumn.Add(self.canvas, 1, wx.EXPAND)
+
+        # Hide the canvas for now
+        self.canvas.Hide()
+
+        # Create the toolbar
+        self.toolbar = NavigationToolbar2WxAgg(self.canvas)
+        self.toolbar.Realize()
+
+        # Add it to the bottom of the frame
+        self.leftColumn.Add(self.toolbar, 0, wx.LEFT | wx.EXPAND)
+
+        # Hide the toolbar for now
+        self.toolbar.Hide()
+
+        #### CONTROLS
+
+        # create the control sizer
+        self.controlSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # create directional buttons sizer
+        self.directionButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # Buttons, to change file/header
+        self.directionButtons = []
+        self.directionButtons.append(wx.Button(self, -1, "<<<"))
+        self.directionButtonSizer.Add(self.directionButtons[0], 1, wx.EXPAND)
+        self.directionButtons.append(wx.Button(self, -1, "<"))
+        self.directionButtonSizer.Add(self.directionButtons[1], 1, wx.EXPAND)
+        self.fileNumber = wx.TextCtrl(self, -1, "", style=wx.TE_CENTRE)
+        self.directionButtonSizer.Add(self.fileNumber, 1, wx.EXPAND)
+        self.directionButtons.append(wx.Button(self, -1, ">"))
+        self.directionButtonSizer.Add(self.directionButtons[2], 1, wx.EXPAND)
+        self.directionButtons.append(wx.Button(self, -1, ">>>"))
+        self.directionButtonSizer.Add(self.directionButtons[3], 1, wx.EXPAND)
+
+        # add buttons to the controlsizer
+        self.controlSizer.Add(self.directionButtonSizer, wx.SizerFlags(
+            0).Align(wx.ALIGN_CENTRE_HORIZONTAL))
+
+        # create the coordinate text
+        self.xCoord = wx.StaticText(self, -1, "X:                   ")
+        self.yCoord = wx.StaticText(self, -1, "Y:       ")
+
+        # add them to the sizer
+        self.controlSizer.Add(self.xCoord, wx.SizerFlags(0).Border(
+            wx.LEFT, borderLarge).Align(wx.ALIGN_CENTRE_VERTICAL | wx.ALIGN_RIGHT))
+        self.controlSizer.Add(self.yCoord, wx.SizerFlags(0).Border(
+            wx.LEFT, borderLarge).Align(wx.ALIGN_CENTRE_VERTICAL | wx.ALIGN_RIGHT))
+
+        # Add the controlsizer to the left column
+        self.leftColumn.Add(self.controlSizer, wx.SizerFlags(0).Border(
+            wx.TOP, borderSmall).Align(wx.ALIGN_CENTRE_HORIZONTAL))
+
+        # Add the leftcolumn to the supersizer
+        self.superSizer.Add(self.leftColumn, wx.SizerFlags(1).Expand())
+
+        # Create the right Column
+        self.rightColumn = wx.BoxSizer(wx.VERTICAL)
+
+        #### NOTEBOOK
+
+        # Create the notebook
+        self.notebook = RCNotebook(self)
+
+        # Add it to the right column
+        self.rightColumn.Add(self.notebook, wx.SizerFlags(1).Expand())
+
+        #### INFO
+
+        # Info Header
+        self.info = wx.StaticText(
+            self, -1, "Info", style=wx.ALIGN_CENTRE_HORIZONTAL)
+        self.info.SetFont(headerFont)
+        # Add to right column
+        self.rightColumn.Add(self.info, wx.SizerFlags(
+            0).Expand().Border(wx.TOP, borderLarge))
+
+        # info gridsizer
+        self.infoGridSizer = wx.GridSizer(
+            rows=3, cols=2, hgap=borderSmall, vgap=borderSmall)
+
+        self.linesOfDataText = wx.StaticText(self, 0, "Lines of data:")
+        self.linesOfDataText.SetFont(mainFont)
+        self.linesOfData = wx.StaticText(self, 0, "")
+        self.linesOfData.SetFont(mainFont)
+        self.infoGridSizer.Add(self.linesOfDataText, 0)
+        self.infoGridSizer.Add(self.linesOfData, 0)
+
+        self.startDateText = wx.StaticText(self, 0, "Start date:")
+        self.startDateText.SetFont(mainFont)
+        self.startDate = wx.StaticText(self, 0, "")
+        self.startDate.SetFont(mainFont)
+        self.infoGridSizer.Add(self.startDateText, 0)
+        self.infoGridSizer.Add(self.startDate, 0)
+
+        self.endDateText = wx.StaticText(self, 0, "End date:")
+        self.endDateText.SetFont(mainFont)
+        self.endDate = wx.StaticText(self, 0, "")
+        self.endDate.SetFont(mainFont)
+        self.infoGridSizer.Add(self.endDateText, 0)
+        self.infoGridSizer.Add(self.endDate, 0)
+
+        # Add to right column
+        self.rightColumn.Add(self.infoGridSizer, wx.SizerFlags(
+            0).Expand().Border(wx.LEFT | wx.RIGHT, borderLarge))
+
+        # Add the right column to the supersizer
+        self.superSizer.Add(self.rightColumn, wx.SizerFlags(0))
+
+        # Add the supersizer to the outerSizer
+        self.outerSizer.Add(self.superSizer, wx.SizerFlags(
+            1).Expand().Border(wx.ALL, borderLarge))
+
+        #### TOOLS
+
+        # Creater the toolsSizer
+        self.toolSizer = wx.GridSizer(
+            rows=1, cols=2, hgap=borderSmall, vgap=borderSmall)
+
+        # Create the analyseSizer
+        self.analyseSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # plotButton
+        self.plotButton = wx.Button(self, -1, "Plot Graph")
+        self.plotButton.Disable()
+        self.analyseSizer.Add(self.plotButton, wx.SizerFlags(0).Border(wx.RIGHT, borderSmall))
+
+        # periodButton
+        self.periodButton = wx.Button(self, -1, "Analyse Period")
+        self.periodButton.Disable()
+        self.analyseSizer.Add(self.periodButton, wx.SizerFlags(0).Border(wx.RIGHT, borderSmall))
+
+        # combineButton
+        self.combineButton = wx.Button(self, -1, "Combine Data")
+        self.combineButton.Disable()
+        self.analyseSizer.Add(self.combineButton, wx.SizerFlags(0))
+
+        # Add the analyseSizer to the toolbar
+        self.toolSizer.Add(self.analyseSizer, wx.SizerFlags(0))
+
+        # create the exportSizer
+        self.exportSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # savePNGAllButton
+        # self.savePNGAllButton = wx.Button(self, -1, "Save all plots")
+        # self.savePNGAllButton.Disable()
+        # self.exportSizer.Add(self.savePNGAllButton, wx.SizerFlags(0).Border(wx.RIGHT, borderSmall))
+
+        # savePNGButton
+        self.savePNGButton = wx.Button(self, -1, "Save Plot")
+        self.savePNGButton.Disable()
+        self.exportSizer.Add(self.savePNGButton, wx.SizerFlags(0).Border(wx.RIGHT, borderSmall))
+
+        # exportAllButton
+        self.exportAllButton = wx.Button(self, -1, "Export All")
+        self.exportAllButton.Disable()
+        self.exportSizer.Add(self.exportAllButton, wx.SizerFlags(0).Border(wx.RIGHT, borderSmall))
+
+        # exportButton
+        self.exportButton = wx.Button(self, -1, "Export")
+        self.exportButton.Disable()
+        self.exportSizer.Add(self.exportButton, wx.SizerFlags(0))
+
+        # Add the exportSizer to the toolbar
+        self.toolSizer.Add(self.exportSizer, wx.SizerFlags(0).Align(wx.ALIGN_RIGHT))
+
+        # Add the toolSizer to the outerSizer
+        self.outerSizer.Add(self.toolSizer, wx.SizerFlags(0).Expand().Border(wx.LEFT | wx.BOTTOM | wx.RIGHT, borderLarge))
+
+        ''' IT IS DONE '''
+        ''' No more worries, the layout is behind us '''
+
+        # Bindings for buttons and stuff
+        for buttonIndex, button in enumerate(self.directionButtons):
+            # First time i ever use lambda, WTF
+            button.Bind(wx.EVT_BUTTON, lambda evt, temp=buttonIndex: self.onDirectionButton(evt, temp))
+
+        # Tool buttons
+        self.toolButtons = [self.plotButton, self.periodButton, self.combineButton, self.savePNGButton, self.exportAllButton, self.exportButton]
+        # Bind them
+        for buttonIndex, button in enumerate(self.toolButtons):
+            # Fourth time i ever use lambda, WTF
+            button.Bind(wx.EVT_BUTTON, lambda evt, temp=buttonIndex: self.onToolbarButton(evt, temp))
+
+        # fileNumber changes detector
+        self.fileNumber.Bind(wx.EVT_TEXT, self.onChangeFile)
+
+        # Layout sizers
+        self.SetSizer(self.outerSizer)
+        self.SetAutoLayout(1)
+        # self.superSizer.Fit(self)
+
+        self.Show(True)
+
+    # Time to brag
+    def OnAbout(self, event):
+        # A message dialog box with an OK button. wx.OK is a standard ID in wxWidgets.
+        dlg = wx.MessageDialog(self, "AstroCycles version " + str(version) + "\nA tool for making my life easier.\nDeveloped by Tomass Wilson in Python 3.6.\n(C) 2017, credit to everyone behind astropy, wxPython, matplotlib, numpy and of course the python team.\nSpecial thanks to Helena Uthas", "About AstroCyles", style=wx.OK | wx.CENTRE)
+        dlg.ShowModal()  # Show it
+        dlg.Destroy()  # finally destroy it when finished.
+
+    # Oof, someone used the ancient "open" command, what a nerd
+    def OnOpen(self, event):
+        """ Open a file"""
+        dirname = ''
+        dlg = wx.FileDialog(self, "Choose a file", dirname, "", "*.*", wx.FD_OPEN)
+        if dlg.ShowModal() == wx.ID_OK:
+            dirname = dlg.GetDirectory()
+            addFiles(dirname)
+        dlg.Destroy()
+
+    # Direction button handler
+    def onDirectionButton(self, event, buttonIndex):
+        # A mental reminder for the buttons:
+        # 0 = <<<
+        # 1 = <
+        # 2 = >
+        # 3 = >>>
+
+        currentFile = al.getField(self.fileNumber, "int")
+
+        # What the buttons do, including a check to see if we have any files
+        # Also make sure we are not out of bounds
+        if len(fileList) != 0:
+
+            if buttonIndex == 0:
+                self.fileNumber.SetValue("1")
+            elif buttonIndex == 1 and currentFile >= 2:
+                self.fileNumber.SetValue(
+                    str(al.getField(self.fileNumber, "int") - 1))
+            elif buttonIndex == 2 and currentFile < len(fileList):
+                self.fileNumber.SetValue(
+                    str(al.getField(self.fileNumber, "int") + 1))
+            elif buttonIndex == 3:
+                self.fileNumber.SetValue(str(len(fileList)))
+
+    # Toolbar button handler
+    def onToolbarButton(self, event, buttonIndex):
+        # A mental reminder for the buttons:
+        # 0 = plotButton
+        # 1 = periodButton
+        # 2 = combineButton
+        #### 3 = savePNGAllButton
+        # 3 = savePNGButton
+        # 4 = exportAllButton
+        # 5 = exportButton
+
+        # What the buttons do
+        if buttonIndex == 0:
+            self.onPlot()
+        elif buttonIndex == 1:
+            self.periodAnalyse()
+        elif buttonIndex == 2:
+            self.combineCurves()
+        # elif buttonIndex == 3:
+        #     self.onSave(True)
+        elif buttonIndex == 3:
+            self.onSave(False)
+        elif buttonIndex == 4:
+            self.onExport(True)
+        elif buttonIndex == 5:
+            self.onExport(False)
+
+    # DATA! YAY
+    def onPlot(self):
+
+        # which button function do we want
+        if not self.plotOnMain and self.file is not None:
+
+            self.plotOnMain = True
+
+            # update button
+            self.plotButton.SetLabel("Show Header")
+
+            # swap frames
+            self.mainBox.Hide()
+            self.canvas.Show()
+            self.toolbar.Show()
+
+            self.updatePlot(reFold=True)
+
+        # Return to the header
+        elif self.plotOnMain:
+
+            self.plotOnMain = False
+
+            self.plotButton.SetLabel("Plot Graph")
+            self.canvas.Hide()
+            self.toolbar.Hide()
+            self.mainBox.Show()
+            self.updateHeader()
+            self.Layout()
+
+    # Update the graph to show the latest data
+    def updatePlot(self, reFold=False):
+        # lock down the screen to stop awkward visuals
+        self.Freeze()
+
+        # clear plot
+        self.axes.clear()
+
+        # get data, depending on if we are folding or not
+        if self.file.foldingEnable:
+            # save on processing if we dont need to refold the entire thing
+            if reFold:
+                x, y = self.file.fold(self.file.foldingPeriod, bins=None)
+            else:
+                x = self.file.foldX
+                y = self.file.foldY
+        else:
+            x = self.file.HJD
+            y = self.file.var
+
+        # modify data, dont bother normalising if we are already detrending
+        if self.file.detrend:
+            y = al.removeTrend(x, y)
+        elif self.file.normalise:
+            y = al.normalise(x, y)
+
+        # Remove macro if necessary
+        if self.file.removeMacro:
+            y = al.removeMacro(x, y)
+
+        # Plot Time!!!
+        # Plot a line and Xs for each datapoint
+        self.axes.clear()
+        self.axes.plot(x, y, color=(0, 0, 0.1, 0.35), lineStyle=":")
+        self.axes.scatter(x, y, color=(0, 0, 0.1, 0.35), marker="x", label="Data Points")
+
+        # Plot SMA
+        if self.file.SMAEnable:
+            SMAY = al.getSMA(x, y, self.file.SMAPower)
+            self.axes.plot(x, SMAY, "r-", label="SMA")
+
+        # print peaks that we have detected
+        if self.file.showPeaks:
+            self.axes.plot(np.array(x)[self.file.peakIndexes], np.array(y)[self.file.peakIndexes], "*", ms=20, color="green", label="Peaks")
+
+        # plot sinusoid
+        if self.file.sinusoid:
+            y = np.array(al.getSMA(x, y, 50))
+            x = np.array(x)
+            try:
+                parameters, parametersCovariance, = optimise.curve_fit(sinusoid, x, y, p0=[0, periodEst, 0, 0, periodEst * 2, 0])
+                self.axes.plot(x, sinusoid(x, parameters[0], parameters[1], parameters[2], parameters[3], parameters[4], parameters[5]), "b-", label="Fitted Sinusoid")
+            except RuntimeError:
+                wx.MessageBox('Sinusoid could not be fit!', 'Warning', wx.OK | wx.ICON_WARNING)
+                self.file.sinusoid = False
+                self.updateFileInfo()
+
+        # Error bars
+        if not self.file.foldingEnable:
+            self.axes.errorbar(x, y, yerr=self.file.error, color=(0, 0, 0.1, 0.05))
+
+        # Cosmetic things
+        if self.file.foldingEnable:
+            self.axes.set_xlabel('Cycles', fontsize=18)
+        else:
+            self.axes.set_xlabel('HJD', fontsize=18)
+
+        if self.file.normalise or self.file.detrend or self.file.removeMacro:
+            self.axes.set_ylabel('Normalised Magnitude', fontsize=18)
+        else:
+            self.axes.set_ylabel('Magnitude', fontsize=18)
+
+        # Invert the x value because magnitude is brighter for smaller numbers
+        self.axes.invert_yaxis()
+
+        # add the legend
+        self.axes.legend()
+
+        # redraw the canvas
+        self.canvas.draw()
+
+        # update the toolbar
+        self.toolbar.update()
+
+        # finish up!
+        self.Thaw()
+        self.Layout()
+
+    # Period graph function
+    def periodAnalyse(self):
+        periodFrame().Show()
+
+    # Show coordinates for mouse cursor
+    def on_move(self, event):
+        # get the x and y pixel coords
+        x, y = event.xdata, event.ydata
+
+        if event.inaxes:
+            self.xCoord.SetLabel("X: " + str(x))
+            self.yCoord.SetLabel("Y: " + str(y))
+
+    # Update the displayed header and whatnot, when the selected file is changed
+    def onChangeFile(self, event):
+        fileToGoTo = al.getField(self.fileNumber, "int")
+
+        # Check if we are out of bounds
+        if len(fileList) == 0:
+            self.fileNumber.ChangeValue("")
+        elif fileToGoTo > len(fileList):
+            self.fileNumber.ChangeValue(str(len(fileList)))
+        elif fileToGoTo < 0:
+            self.fileNumber.ChangeValue("1")
+        else:
+            # This is the start of a huge process
+            # 1. Get the file
+            self.file = fileList[fileToGoTo - 1]
+
+            # 2. depends on what is onscreen
+            if self.plotOnMain:
+                self.updatePlot(reFold=True)
+                self.updateFileInfo(False)
+            else:
+                self.updateFileInfo(True)
+
+    # Update the info stuffs
+    def updateFileInfo(self, headerUpdate=False):
+
+        # Only do this if we want to update the header, i.e the headerbox is on the main page
+        if headerUpdate:
+            self.updateHeader()
+
+        # update the JD offset
+        self.notebook.DVPanel.JDOffset.ChangeValue(str(self.file.JDOffset))
+
+        # update the var offset
+        self.notebook.DVPanel.calibColumn.ChangeValue(
+            str(self.file.calibColumn))
+
+        # update other things
+        self.notebook.DVPanel.JDColumn.ChangeValue(str(self.file.JDColumn))
+        self.notebook.DVPanel.varColumn.ChangeValue(
+            str(self.file.varColumn))
+        self.notebook.DVPanel.errorColumn.ChangeValue(
+            str(self.file.errorColumn))
+        self.notebook.DVPanel.airmassColumn.ChangeValue(
+            str(self.file.airmassColumn))
+        self.notebook.GMPanel.SMAPower.ChangeValue(str(self.file.SMAPower))
+        self.notebook.GMPanel.SMAEnable.SetValue(self.file.SMAEnable)
+        self.notebook.GMPanel.sinusoid.SetValue(self.file.sinusoid)
+        self.notebook.GMPanel.normalise.SetValue(self.file.normalise)
+        self.notebook.GMPanel.detrend.SetValue(self.file.detrend)
+        self.notebook.GMPanel.removeMacro.SetValue(self.file.removeMacro)
+        self.notebook.GMPanel.foldingEnable.SetValue(self.file.foldingEnable)
+        self.notebook.GMPanel.foldingPeriod.ChangeValue(str(self.file.foldingPeriod))
+
+        self.linesOfData.SetLabel(str(len(self.file.all)))
+        self.startDate.SetLabel(str(al.JDToGC(self.file.all[0][0]))[:-7])
+        self.endDate.SetLabel(
+            str(al.JDToGC(self.file.all[(len(self.file.all) - 1)][0]))[:-7])
+        self.Layout()
+
+    # function to update the header
+    def updateHeader(self):
+        fileLines = self.file.getLines()
+        # Go find the header for this file and print it onto screen
+        header = ""
+
+        if not self.file.oneLine:
+            for lineIndex, line in enumerate(fileLines):
+                if line[0] == "#" or len(line) < 3:
+                    header = header + line
+                else:
+                    header = header + line
+                    header = header + fileLines[lineIndex + 1]
+                    header = header + fileLines[lineIndex + 2]
+
+                    header = header + "..............\n"
+
+                    # all this while stuff is to avoid annoying commented end areas
+                    i = 1
+                    lastLine = fileLines[len(fileLines) - i]
+                    while lastLine[0] == "#":
+                        i += 1
+                        lastLine = fileLines[len(fileLines) - i]
+
+                    header = header + fileLines[len(fileLines) - (i + 2)]
+                    header = header + fileLines[len(fileLines) - (i + 1)]
+                    header = header + lastLine
+                    break
+
+        # What to do if its a oneline
+        else:
+            for line in fileLines:
+                if line[0] == "#" or len(line) < 3:
+                    header = header + line
+                else:
+                    numbers = al.findNumbers(line)
+                    for numberIndex in range(0, self.file.totalColumns):
+                        number = numbers[numberIndex]
+                        header = header + "  " + str(number[0])
+                    header = header + "\n..............\n"
+                    for numberIndex in range(0, self.file.totalColumns):
+                        # Wierd necessary inversion
+                        numberTemp = (
+                            self.file.totalColumns) - numberIndex
+                        number = numbers[-numberTemp]
+                        header = header + "  " + str(number[0])
+        self.mainBox.SetValue(header)
+
+    # What to do on export button press
+    def onExport(self, all):
+        if not all and self.file is not None:
+            export(self.file, self.getUserDirectory())
+
+        elif all and self.file is not None:
+            for file in fileList:
+                export(file)
+
+    # What to do on save plot button press
+    def onSave(self, all):
+        if not all and self.file is not None:
+
+            # Open new file
+            imageDir = self.file.fileDir[:-self.file.extensionLength] + ".png"
+            newFile = Path(imageDir)
+
+            # Make sure it has a unique name
+            i = 1
+            while True:
+                if newFile.is_file():
+                    imageDir = imageDir[:-self.file.extensionLength] + "(" + str(i) + ")" + ".png"
+                    newFile = Path(imageDir)
+                    i += 1
+                else:
+                    break
+
+            # save it
+            self.figure.savefig(imageDir, bbox_inches='tight')
+
+        # elif all and self.file is not None:
+        #     for file in fileList:
+
+        #         imageDir = file.fileDir[:-4] + "_raw.astred"
+        #         self.figure.savefig(imageDir, bbox_inches='tight')
+
+    # You're leaving!?! What!?
+    def OnExit(self, event):
+        self.Destroy()  # Close the frame.
+        quit()
+
+    # The list of fields and buttons to be anabled at the first file entry
+    def enableStuff(self):
+        # Enable buttons and things
+        if mainFrame.fileNumber.GetValue() == "":
+            for directionButton in mainFrame.directionButtons:
+                directionButton.Enable()
+            for toolButton in mainFrame.toolButtons:
+                toolButton.Enable()
+            for detector in mainFrame.notebook.DVPanel.detectionFields:
+                detector.Enable()
+            for detector in mainFrame.notebook.GMPanel.detectionFields:
+                detector.Enable()
+            for checkbox in mainFrame.notebook.GMPanel.checkboxes:
+                checkbox.Enable()
+            for button in mainFrame.notebook.GMPanel.buttons:
+                if button != mainFrame.notebook.GMPanel.OminusC:
+                    button.Enable()
+
+    # Code to combine all data
+    def combineCurves(self):
+        # Let the user specify the new Dir
+        fileDir = self.getUserDirectory()
+
+        if fileDir is None:
+            return
+
+        # instantiate our file as a file class
+        self.superFile = fileConstruct(fileDir, False)
+        self.superFile.foldingEnable = False
+
+        # create a box to store our new data
+        superFileData = []
+
+        # Combine all the data
+        for file in fileList:
+            # normalise the data
+            var = al.normalise(file.JD, file.var)
+
+            # Collate it all, with HJD
+            for HJDIndex, HJD in enumerate(file.HJD):
+                superFileData.append([HJD, var[HJDIndex], file.error[HJDIndex], file.airmass[HJDIndex]])
+
+        # sort it
+        superFileData.sort(key=al.sort_key)
+
+        # Give our file its data
+        for dataPoint in superFileData:
+            self.superFile.HJD.append(dataPoint[0])
+            self.superFile.var.append(dataPoint[1])
+            self.superFile.error.append(dataPoint[2])
+            self.superFile.airmass.append(dataPoint[3])
+
+        # save out the new superfile in astred format
+        export(self.superFile, fileDir)
+
+    # A function to allow the user to specify a save file
+    def getUserDirectory(self, type=".astred"):
+
+        with wx.FileDialog(self, "Save " + type + " file", wildcard="" + type + " files (*" + type + ")|*" + type + "",
+                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
+
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return None    # the user changed their mind
+
+            # save the current contents in the file
+            pathName = fileDialog.GetPath()
+            return pathName
+
+
+# Define File Drop Target class, no idea how this works. enables the drag and drop functionality on the header text box
 class FileDropTarget(wx.FileDropTarget):
     """ This object implements Drop Target functionality for Files """
 
@@ -492,6 +1226,39 @@ class FileDropTarget(wx.FileDropTarget):
 
         addFiles(fileNames)
         return len(fileNames)
+
+
+# MAinframe Right Column Notebook class
+class RCNotebook(wx.Notebook):
+
+    # ----------------------------------------------------------------------
+    def __init__(self, parent):
+        wx.Notebook.__init__(self, parent, id=wx.ID_ANY, style=wx.BK_DEFAULT)
+
+        # Create the first tab and add it to the notebook
+        self.DVPanel = DVPanel(self)
+        self.DVPanel.SetBackgroundColour("light gray")
+        self.AddPage(self.DVPanel, "Detection")
+
+        # Create and add the second tab
+        self.GMPanel = GMPanel(self)
+        self.GMPanel.SetBackgroundColour("light gray")
+        self.AddPage(self.GMPanel, "Graph")
+
+        # self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.OnPageChanged)
+        # self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGING, self.OnPageChanging)
+
+    # def OnPageChanged(self, event):
+    #     old = event.GetOldSelection()
+    #     new = event.GetSelection()
+    #     sel = self.GetSelection()
+    #     event.Skip()
+
+    # def OnPageChanging(self, event):
+    #     old = event.GetOldSelection()
+    #     new = event.GetSelection()
+    #     sel = self.GetSelection()
+    #     event.Skip()
 
 
 # Detected values side Panel for the mainframe. Allows the user to fine tune the data collection from wierd TXT files
@@ -1027,238 +1794,7 @@ class GMPanel(wx.Panel):
                 mainFrame.updatePlot(reFold)
 
 
-# A side panel for period graph settings. Not much here right now
-class periodPanel(wx.Panel):
-    """This side Panel is for changing how the periodogram is displayed"""
-
-    def __init__(self, parent):
-        """Create the panel"""
-        wx.Panel.__init__(self, parent=parent, id=wx.ID_ANY)
-
-        # create its sizer
-        self.panelSizer = wx.BoxSizer(wx.VERTICAL)
-        self.itemSizer = wx.BoxSizer(wx.VERTICAL)
-
-        # Detected values header
-        self.graphSettings = wx.StaticText(
-            self, 0, "Graph Settings", style=wx.ALIGN_CENTRE_HORIZONTAL)
-        self.graphSettings.SetFont(headerFont)
-        # Add to right column
-        self.itemSizer.Add(self.graphSettings, wx.SizerFlags(
-            0).Border(wx.BOTTOM | wx.TOP, borderLarge))
-
-        # minMax gridsizer, for the min and max x values of the periodogram
-        self.minMaxSizer = wx.GridSizer(
-            rows=2, cols=2, hgap=borderSmall, vgap=borderSmall)
-
-        # minX
-        self.minXFieldText = wx.StaticText(self, 0, "Min x:")
-        self.minXFieldText.SetFont(mainFont)
-        self.minXField = wx.TextCtrl(self, 0, "")
-        self.minXField.ChangeValue(str(parent.minX))
-        self.minMaxSizer.Add(self.minXFieldText, 0)
-        self.minMaxSizer.Add(self.minXField, 0)
-
-        # minY
-        self.maxXFieldText = wx.StaticText(self, 0, "Max x:")
-        self.maxXFieldText.SetFont(mainFont)
-        self.maxXField = wx.TextCtrl(self, 0, "")
-        self.maxXField.ChangeValue(str(parent.maxX))
-        self.minMaxSizer.Add(self.maxXFieldText, 0)
-        self.minMaxSizer.Add(self.maxXField, 0)
-
-        # Add to right column
-        self.itemSizer.Add(self.minMaxSizer, wx.SizerFlags(
-            0).Expand().Border(wx.BOTTOM, borderLarge))
-
-        self.panelSizer.Add(self.itemSizer, wx.SizerFlags(
-            0).Border(wx.LEFT, borderLarge))
-
-        self.SetSizer(self.panelSizer)
-
-        """ """
-
-        # Create the detectionFields array
-        self.detectionFields = [self.minXField, self.maxXField]
-
-        # Bindings for all the Detection fields
-        for detectionIndex, detector in enumerate(self.detectionFields):
-            # third time i ever use lambda, WTF
-            detector.Bind(wx.EVT_TEXT, lambda evt, temp=detectionIndex: self.onChangesToDetectionField(parent, evt, temp))
-
-        # Create the Checkbox Array
-        self.checkboxes = None
-
-        # Bindings for checkboxes
-        if self.checkboxes is not None:
-            for checkboxIndex, checkbox in enumerate(self.checkboxes):
-                # fourth time i ever use lambda, WTF
-                checkbox.Bind(wx.EVT_CHECKBOX, lambda evt,
-                              temp=checkboxIndex: self.onChecked(evt, temp))
-
-    # detection field handler
-    def onChangesToDetectionField(self, parent, evt, detectionIndex):
-        # A mental reminder for the fields:
-        # 0 = self.minXField
-        # 1 = self.maxXField
-
-        # Modify the properties of this file
-        if mainFrame.file is not None:
-            shouldUpdate = False
-
-            if detectionIndex == 0:
-                source = al.getField(self.minXField, "int")
-                if source is not None:
-                    parent.minX = source
-                    shouldUpdate = True
-                else:
-                    None
-
-            elif detectionIndex == 1:
-                source = al.getField(self.maxXField, "int")
-                if source is not None:
-                    parent.maxX = source
-                    shouldUpdate = True
-                else:
-                    None
-
-            # Make sure the source has something valid in it and should update the plots n stuff
-            if shouldUpdate and mainFrame.plotOnMain:
-                parent.updatePlot()
-
-    # Checkbox Handler
-    def onChecked(self, evt, checkboxIndex):
-        # A mental reminder for the checkboxes:
-        # THERE ARE NONE
-
-        if mainFrame.file is not None:
-
-            if checkboxIndex == 0:
-                None
-
-
-# a class for dialog windows when the user wants to use a complex algorythm. My first constructor yay!
-class functionDialog(wx.Dialog):
-
-    def __init__(self, parent, title, fields, id=-1):
-
-        # get rows and cols
-        if len(fields) > 6:
-            self.cols = 6
-        else:
-            self.cols = 4
-        # for every field we need 2 columns
-        self.rows = math.ceil((len(fields) * 2) / self.cols)
-
-        # set height and width
-        height = 60 + (self.rows * 50)
-        width = 500 if self.cols == 4 else 750
-        size = (width, height)
-
-        wx.Dialog.__init__(self, parent, id, title, size)
-
-        # Fields come in form {"title": "something", "type": "int" or "float" or "check" or "string"}
-
-        self.SetTitle(title)
-        self.SetSize(size)
-        self.fields = fields
-
-        # create the supersizer
-        self.superSizer = wx.BoxSizer(wx.VERTICAL)
-
-        # create the field sizer
-        self.fieldSizer = wx.GridSizer(
-            rows=self.rows, cols=self.cols, hgap=borderSmall, vgap=borderSmall)
-
-        # create each field with label
-        for fieldIndex, field in enumerate(self.fields):
-            fieldTitle = field["title"]
-            fieldType = field["type"]
-            ctrl = None
-
-            # Instantiate the label
-            text = wx.StaticText(self, 0, fieldTitle)
-            text.SetFont(mainFont)
-            self.fieldSizer.Add(text)
-
-            # instantiate the correct control type
-            if fieldType == "check":
-                ctrl = wx.CheckBox(self, 0, "")
-            else:
-                ctrl = wx.TextCtrl(self, 0, "")
-
-            self.fieldSizer.Add(ctrl)
-            self.fields[fieldIndex]["ctrl"] = ctrl
-
-        # Create the ok and close buttons
-        self.buttonBox = wx.BoxSizer(wx.HORIZONTAL)
-        self.okButton = wx.Button(self, label='Ok')
-        self.closeButton = wx.Button(self, label='Close')
-        self.buttonBox.Add(self.okButton, wx.SizerFlags(0).Align(wx.RIGHT))
-        self.buttonBox.Add(self.closeButton, wx.SizerFlags(0).Border(wx.LEFT, borderSmall).Align(wx.RIGHT))
-
-        # add the fields to the supersizer
-        self.superSizer.Add(self.fieldSizer, wx.SizerFlags(0).Border(wx.ALL, borderSmall))
-        self.superSizer.Add(self.buttonBox, wx.SizerFlags(0).Border(wx.LEFT | wx.RIGHT | wx.BOTTOM, borderSmall).Align(wx.RIGHT))
-        self.SetSizer(self.superSizer)
-        self.Layout()
-
-        self.okButton.Bind(wx.EVT_BUTTON, self.onOK)
-        self.closeButton.Bind(wx.EVT_BUTTON, self.onClose)
-
-    def onOK(self, evt):
-        # return field data
-        for fieldIndex, field in enumerate(self.fields):
-            fieldType = field["type"]
-            ctrl = field["ctrl"]
-
-            if fieldType == "check":
-                self.fields[fieldIndex]["result"] = ctrl.GetValue()
-            else:
-                self.fields[fieldIndex]["result"] = al.getField(ctrl, fieldType)
-
-        # IK its messy but RN this is what works
-        mainFrame.dlgReturn = self.fields
-
-        # destroy self
-        self.Destroy()
-
-    def onClose(self, evt):
-        mainFrame.dlgReturn = None
-        self.Destroy()
-
-
-# MAinframe Right Column Notebook class
-class RCNotebook(wx.Notebook):
-
-    # ----------------------------------------------------------------------
-    def __init__(self, parent):
-        wx.Notebook.__init__(self, parent, id=wx.ID_ANY, style=wx.BK_DEFAULT)
-
-        # Create the first tab and add it to the notebook
-        self.DVPanel = DVPanel(self)
-        self.DVPanel.SetBackgroundColour("light gray")
-        self.AddPage(self.DVPanel, "Detection")
-
-        # Create and add the second tab
-        self.GMPanel = GMPanel(self)
-        self.GMPanel.SetBackgroundColour("light gray")
-        self.AddPage(self.GMPanel, "Graph")
-
-        # self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.OnPageChanged)
-        # self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGING, self.OnPageChanging)
-
-    # def OnPageChanged(self, event):
-    #     old = event.GetOldSelection()
-    #     new = event.GetSelection()
-    #     sel = self.GetSelection()
-    #     event.Skip()
-
-    # def OnPageChanging(self, event):
-    #     old = event.GetOldSelection()
-    #     new = event.GetSelection()
-    #     sel = self.GetSelection()
-    #     event.Skip()
+###### Periodogram
 
 
 # Gui for showing periodogram, is its own frame and has its own sidepanel plus gizmos like gaussian fits and monte carlo simulations
@@ -1464,8 +2000,8 @@ class periodFrame(wx.Frame):
         # clear plot
         self.axes.clear()
 
-        time = self.file.rawData.HJD
-        mag = self.file.rawData.var
+        time = self.file.HJD
+        mag = self.file.var
 
         # Create a period graph with lomb scargle (using astropy)
         ls = LombScargle(time, mag)
@@ -1594,9 +2130,9 @@ class periodFrame(wx.Frame):
             runs = result[2]["result"]
 
             # get time and mag
-            time = self.file.rawData.HJD
-            mag = self.file.rawData.var
-            error = self.file.rawData.error
+            time = self.file.HJD
+            mag = self.file.var
+            error = self.file.error
 
             # run the simulation
             self.MCPeak, self.MCSD, self.missingPeaks = periodMC(time, mag, error, minFreq, maxFreq, runs)
@@ -1609,692 +2145,211 @@ class periodFrame(wx.Frame):
         self.updatePlot()
 
 
-# GUI Data
-class mainWindow(wx.Frame):
-    """ We simply derive a new class of Frame. """
+# A side panel for period graph settings. Not much here right now
+class periodPanel(wx.Panel):
+    """This side Panel is for changing how the periodogram is displayed"""
 
-    def __init__(self, parent, title):
-        self.file = None
-        self.plotOnMain = False
-        wx.Frame.__init__(self, parent, title=title,
-                          size=(windowWidth, windowHeight))
-        wx.Frame.SetMinSize(self, (1200, 600))
-        self.CreateStatusBar()  # A Statusbar in the bottom of the window
-        self.SetBackgroundColour("light gray")
+    def __init__(self, parent):
+        """Create the panel"""
+        wx.Panel.__init__(self, parent=parent, id=wx.ID_ANY)
 
-        # Setting up the menu.
-        filemenu = wx.Menu()
+        # create its sizer
+        self.panelSizer = wx.BoxSizer(wx.VERTICAL)
+        self.itemSizer = wx.BoxSizer(wx.VERTICAL)
 
-        # wx.ID_ABOUT and wx.ID_EXIT are standard IDs provided by wxWidgets.
-        menuOpen = filemenu.Append(
-            wx.ID_OPEN, "&Open", " Open a file to analyze")
-        filemenu.AppendSeparator()
-        menuItem = filemenu.Append(
-            wx.ID_ABOUT, "&About", " Information about astroRedux")
-        filemenu.AppendSeparator()
-        menuExit = filemenu.Append(
-            wx.ID_EXIT, "E&xit", " Terminate the program")
-
-        # Creating the menubar.
-        menuBar = wx.MenuBar()
-        # Adding the "filemenu" to the MenuBar
-        menuBar.Append(filemenu, "&File")
-        self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
-
-        # Events
-        # Menu Items
-        self.Bind(wx.EVT_MENU, self.OnAbout, menuItem)
-        self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
-        self.Bind(wx.EVT_MENU, self.OnOpen, menuOpen)
-        # X TO CLOSE ALL
-        self.Bind(wx.EVT_CLOSE, self.OnExit)
-
-        ''' HERE THERE BE DRAGONS '''
-        ''' beyond this point is the layout data, tread with care '''
-
-        # Create the outerSizer
-        self.outerSizer = wx.BoxSizer(wx.VERTICAL)
-
-        # Create the SuperSizer
-        self.superSizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        # Create the left column
-        self.leftColumn = wx.BoxSizer(wx.VERTICAL)
-
-        #### HEADER TEXT BOX
-
-        # Define a Text Control to receive Dropped Files
-        # Create a read-only Text Control
-        self.mainBox = wx.TextCtrl(self, -1, "Drag a .txt file here to begin processing",
-                                   style=wx.TE_MULTILINE | wx.HSCROLL | wx.TE_READONLY)
-        # Make this control a File Drop Target
-        # Create a File Drop Target object
-        dt3 = FileDropTarget(self.mainBox)
-        # Link the Drop Target Object to the Text Control
-        self.mainBox.SetDropTarget(dt3)
-        # Add it to the left column
-        self.leftColumn.Add(self.mainBox, 2, wx.EXPAND)
-
-        #### GRAPH CANVAS
-
-        # Create the matplotlib canvas
-        self.figure = Figure()
-        self.axes = self.figure.add_subplot(111)
-        self.canvas = FigureCanvas(self, -1, self.figure)
-        self.canvas.mpl_connect('motion_notify_event', self.on_move)
-
-        # Add it to the left column
-        self.leftColumn.Add(self.canvas, 1, wx.EXPAND)
-
-        # Hide the canvas for now
-        self.canvas.Hide()
-
-        # Create the toolbar
-        self.toolbar = NavigationToolbar2WxAgg(self.canvas)
-        self.toolbar.Realize()
-
-        # Add it to the bottom of the frame
-        self.leftColumn.Add(self.toolbar, 0, wx.LEFT | wx.EXPAND)
-
-        # Hide the toolbar for now
-        self.toolbar.Hide()
-
-        #### CONTROLS
-
-        # create the control sizer
-        self.controlSizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        # create directional buttons sizer
-        self.directionButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        # Buttons, to change file/header
-        self.directionButtons = []
-        self.directionButtons.append(wx.Button(self, -1, "<<<"))
-        self.directionButtonSizer.Add(self.directionButtons[0], 1, wx.EXPAND)
-        self.directionButtons.append(wx.Button(self, -1, "<"))
-        self.directionButtonSizer.Add(self.directionButtons[1], 1, wx.EXPAND)
-        self.fileNumber = wx.TextCtrl(self, -1, "", style=wx.TE_CENTRE)
-        self.directionButtonSizer.Add(self.fileNumber, 1, wx.EXPAND)
-        self.directionButtons.append(wx.Button(self, -1, ">"))
-        self.directionButtonSizer.Add(self.directionButtons[2], 1, wx.EXPAND)
-        self.directionButtons.append(wx.Button(self, -1, ">>>"))
-        self.directionButtonSizer.Add(self.directionButtons[3], 1, wx.EXPAND)
-
-        # add buttons to the controlsizer
-        self.controlSizer.Add(self.directionButtonSizer, wx.SizerFlags(
-            0).Align(wx.ALIGN_CENTRE_HORIZONTAL))
-
-        # create the coordinate text
-        self.xCoord = wx.StaticText(self, -1, "X:                   ")
-        self.yCoord = wx.StaticText(self, -1, "Y:       ")
-
-        # add them to the sizer
-        self.controlSizer.Add(self.xCoord, wx.SizerFlags(0).Border(
-            wx.LEFT, borderLarge).Align(wx.ALIGN_CENTRE_VERTICAL | wx.ALIGN_RIGHT))
-        self.controlSizer.Add(self.yCoord, wx.SizerFlags(0).Border(
-            wx.LEFT, borderLarge).Align(wx.ALIGN_CENTRE_VERTICAL | wx.ALIGN_RIGHT))
-
-        # Add the controlsizer to the left column
-        self.leftColumn.Add(self.controlSizer, wx.SizerFlags(0).Border(
-            wx.TOP, borderSmall).Align(wx.ALIGN_CENTRE_HORIZONTAL))
-
-        # Add the leftcolumn to the supersizer
-        self.superSizer.Add(self.leftColumn, wx.SizerFlags(1).Expand())
-
-        # Create the right Column
-        self.rightColumn = wx.BoxSizer(wx.VERTICAL)
-
-        #### NOTEBOOK
-
-        # Create the notebook
-        self.notebook = RCNotebook(self)
-
-        # Add it to the right column
-        self.rightColumn.Add(self.notebook, wx.SizerFlags(1).Expand())
-
-        #### INFO
-
-        # Info Header
-        self.info = wx.StaticText(
-            self, -1, "Info", style=wx.ALIGN_CENTRE_HORIZONTAL)
-        self.info.SetFont(headerFont)
+        # Detected values header
+        self.graphSettings = wx.StaticText(
+            self, 0, "Graph Settings", style=wx.ALIGN_CENTRE_HORIZONTAL)
+        self.graphSettings.SetFont(headerFont)
         # Add to right column
-        self.rightColumn.Add(self.info, wx.SizerFlags(
-            0).Expand().Border(wx.TOP, borderLarge))
+        self.itemSizer.Add(self.graphSettings, wx.SizerFlags(
+            0).Border(wx.BOTTOM | wx.TOP, borderLarge))
 
-        # info gridsizer
-        self.infoGridSizer = wx.GridSizer(
-            rows=3, cols=2, hgap=borderSmall, vgap=borderSmall)
+        # minMax gridsizer, for the min and max x values of the periodogram
+        self.minMaxSizer = wx.GridSizer(
+            rows=2, cols=2, hgap=borderSmall, vgap=borderSmall)
 
-        self.linesOfDataText = wx.StaticText(self, 0, "Lines of data:")
-        self.linesOfDataText.SetFont(mainFont)
-        self.linesOfData = wx.StaticText(self, 0, "")
-        self.linesOfData.SetFont(mainFont)
-        self.infoGridSizer.Add(self.linesOfDataText, 0)
-        self.infoGridSizer.Add(self.linesOfData, 0)
+        # minX
+        self.minXFieldText = wx.StaticText(self, 0, "Min x:")
+        self.minXFieldText.SetFont(mainFont)
+        self.minXField = wx.TextCtrl(self, 0, "")
+        self.minXField.ChangeValue(str(parent.minX))
+        self.minMaxSizer.Add(self.minXFieldText, 0)
+        self.minMaxSizer.Add(self.minXField, 0)
 
-        self.startDateText = wx.StaticText(self, 0, "Start date:")
-        self.startDateText.SetFont(mainFont)
-        self.startDate = wx.StaticText(self, 0, "")
-        self.startDate.SetFont(mainFont)
-        self.infoGridSizer.Add(self.startDateText, 0)
-        self.infoGridSizer.Add(self.startDate, 0)
-
-        self.endDateText = wx.StaticText(self, 0, "End date:")
-        self.endDateText.SetFont(mainFont)
-        self.endDate = wx.StaticText(self, 0, "")
-        self.endDate.SetFont(mainFont)
-        self.infoGridSizer.Add(self.endDateText, 0)
-        self.infoGridSizer.Add(self.endDate, 0)
+        # minY
+        self.maxXFieldText = wx.StaticText(self, 0, "Max x:")
+        self.maxXFieldText.SetFont(mainFont)
+        self.maxXField = wx.TextCtrl(self, 0, "")
+        self.maxXField.ChangeValue(str(parent.maxX))
+        self.minMaxSizer.Add(self.maxXFieldText, 0)
+        self.minMaxSizer.Add(self.maxXField, 0)
 
         # Add to right column
-        self.rightColumn.Add(self.infoGridSizer, wx.SizerFlags(
-            0).Expand().Border(wx.LEFT | wx.RIGHT, borderLarge))
+        self.itemSizer.Add(self.minMaxSizer, wx.SizerFlags(
+            0).Expand().Border(wx.BOTTOM, borderLarge))
 
-        # Add the right column to the supersizer
-        self.superSizer.Add(self.rightColumn, wx.SizerFlags(0))
+        self.panelSizer.Add(self.itemSizer, wx.SizerFlags(
+            0).Border(wx.LEFT, borderLarge))
 
-        # Add the supersizer to the outerSizer
-        self.outerSizer.Add(self.superSizer, wx.SizerFlags(
-            1).Expand().Border(wx.ALL, borderLarge))
+        self.SetSizer(self.panelSizer)
 
-        #### TOOLS
+        """ """
 
-        # Creater the toolsSizer
-        self.toolSizer = wx.GridSizer(
-            rows=1, cols=2, hgap=borderSmall, vgap=borderSmall)
+        # Create the detectionFields array
+        self.detectionFields = [self.minXField, self.maxXField]
 
-        # Create the analyseSizer
-        self.analyseSizer = wx.BoxSizer(wx.HORIZONTAL)
+        # Bindings for all the Detection fields
+        for detectionIndex, detector in enumerate(self.detectionFields):
+            # third time i ever use lambda, WTF
+            detector.Bind(wx.EVT_TEXT, lambda evt, temp=detectionIndex: self.onChangesToDetectionField(parent, evt, temp))
 
-        # plotButton
-        self.plotButton = wx.Button(self, -1, "Plot Graph")
-        self.plotButton.Disable()
-        self.analyseSizer.Add(self.plotButton, wx.SizerFlags(0).Border(wx.RIGHT, borderSmall))
+        # Create the Checkbox Array
+        self.checkboxes = None
 
-        # periodButton
-        self.periodButton = wx.Button(self, -1, "Analyse Period")
-        self.periodButton.Disable()
-        self.analyseSizer.Add(self.periodButton, wx.SizerFlags(0).Border(wx.RIGHT, borderSmall))
+        # Bindings for checkboxes
+        if self.checkboxes is not None:
+            for checkboxIndex, checkbox in enumerate(self.checkboxes):
+                # fourth time i ever use lambda, WTF
+                checkbox.Bind(wx.EVT_CHECKBOX, lambda evt,
+                              temp=checkboxIndex: self.onChecked(evt, temp))
 
-        # combineButton
-        self.combineButton = wx.Button(self, -1, "Combine Data")
-        self.combineButton.Disable()
-        self.analyseSizer.Add(self.combineButton, wx.SizerFlags(0))
+    # detection field handler
+    def onChangesToDetectionField(self, parent, evt, detectionIndex):
+        # A mental reminder for the fields:
+        # 0 = self.minXField
+        # 1 = self.maxXField
 
-        # Add the analyseSizer to the toolbar
-        self.toolSizer.Add(self.analyseSizer, wx.SizerFlags(0))
+        # Modify the properties of this file
+        if mainFrame.file is not None:
+            shouldUpdate = False
 
-        # create the exportSizer
-        self.exportSizer = wx.BoxSizer(wx.HORIZONTAL)
+            if detectionIndex == 0:
+                source = al.getField(self.minXField, "int")
+                if source is not None:
+                    parent.minX = source
+                    shouldUpdate = True
+                else:
+                    None
 
-        # savePNGAllButton
-        # self.savePNGAllButton = wx.Button(self, -1, "Save all plots")
-        # self.savePNGAllButton.Disable()
-        # self.exportSizer.Add(self.savePNGAllButton, wx.SizerFlags(0).Border(wx.RIGHT, borderSmall))
+            elif detectionIndex == 1:
+                source = al.getField(self.maxXField, "int")
+                if source is not None:
+                    parent.maxX = source
+                    shouldUpdate = True
+                else:
+                    None
 
-        # savePNGButton
-        self.savePNGButton = wx.Button(self, -1, "Save Plot")
-        self.savePNGButton.Disable()
-        self.exportSizer.Add(self.savePNGButton, wx.SizerFlags(0).Border(wx.RIGHT, borderSmall))
+            # Make sure the source has something valid in it and should update the plots n stuff
+            if shouldUpdate and mainFrame.plotOnMain:
+                parent.updatePlot()
 
-        # exportAllButton
-        self.exportAllButton = wx.Button(self, -1, "Export All")
-        self.exportAllButton.Disable()
-        self.exportSizer.Add(self.exportAllButton, wx.SizerFlags(0).Border(wx.RIGHT, borderSmall))
+    # Checkbox Handler
+    def onChecked(self, evt, checkboxIndex):
+        # A mental reminder for the checkboxes:
+        # THERE ARE NONE
 
-        # exportButton
-        self.exportButton = wx.Button(self, -1, "Export")
-        self.exportButton.Disable()
-        self.exportSizer.Add(self.exportButton, wx.SizerFlags(0))
+        if mainFrame.file is not None:
 
-        # Add the exportSizer to the toolbar
-        self.toolSizer.Add(self.exportSizer, wx.SizerFlags(0).Align(wx.ALIGN_RIGHT))
+            if checkboxIndex == 0:
+                None
 
-        # Add the toolSizer to the outerSizer
-        self.outerSizer.Add(self.toolSizer, wx.SizerFlags(0).Expand().Border(wx.LEFT | wx.BOTTOM | wx.RIGHT, borderLarge))
 
-        ''' IT IS DONE '''
-        ''' No more worries, the layout is behind us '''
+###### Window Constructors
 
-        # Bindings for buttons and stuff
-        for buttonIndex, button in enumerate(self.directionButtons):
-            # First time i ever use lambda, WTF
-            button.Bind(wx.EVT_BUTTON, lambda evt, temp=buttonIndex: self.onDirectionButton(evt, temp))
 
-        # Tool buttons
-        self.toolButtons = [self.plotButton, self.periodButton, self.combineButton, self.savePNGButton, self.exportAllButton, self.exportButton]
-        # Bind them
-        for buttonIndex, button in enumerate(self.toolButtons):
-            # Fourth time i ever use lambda, WTF
-            button.Bind(wx.EVT_BUTTON, lambda evt, temp=buttonIndex: self.onToolbarButton(evt, temp))
+# a class for dialog windows when the user wants to use a complex algorythm. My first constructor yay!
+class functionDialog(wx.Dialog):
 
-        # fileNumber changes detector
-        self.fileNumber.Bind(wx.EVT_TEXT, self.onChangeFile)
+    def __init__(self, parent, title, fields, id=-1):
 
-        # Layout sizers
-        self.SetSizer(self.outerSizer)
-        self.SetAutoLayout(1)
-        # self.superSizer.Fit(self)
+        # get rows and cols
+        if len(fields) > 6:
+            self.cols = 6
+        else:
+            self.cols = 4
+        # for every field we need 2 columns
+        self.rows = math.ceil((len(fields) * 2) / self.cols)
 
-        self.Show(True)
+        # set height and width
+        height = 60 + (self.rows * 50)
+        width = 500 if self.cols == 4 else 750
+        size = (width, height)
 
-    # Time to brag
-    def OnAbout(self, event):
-        # A message dialog box with an OK button. wx.OK is a standard ID in wxWidgets.
-        dlg = wx.MessageDialog(self, "AstroCycles version " + str(version) + "\nA tool for making my life easier.\nDeveloped by Tomass Wilson in Python 3.6.\n(C) 2017, credit to everyone behind astropy, wxPython, matplotlib, numpy and of course the python team.\nSpecial thanks to Helena Uthas", "About AstroCyles", style=wx.OK | wx.CENTRE)
-        dlg.ShowModal()  # Show it
-        dlg.Destroy()  # finally destroy it when finished.
+        wx.Dialog.__init__(self, parent, id, title, size)
 
-    # Oof, someone used the ancient "open" command, what a nerd
-    def OnOpen(self, event):
-        """ Open a file"""
-        dirname = ''
-        dlg = wx.FileDialog(self, "Choose a file", dirname, "", "*.*", wx.FD_OPEN)
-        if dlg.ShowModal() == wx.ID_OK:
-            dirname = dlg.GetDirectory()
-            addFiles(dirname)
-        dlg.Destroy()
+        # Fields come in form {"title": "something", "type": "int" or "float" or "check" or "string"}
 
-    # Direction button handler
-    def onDirectionButton(self, event, buttonIndex):
-        # A mental reminder for the buttons:
-        # 0 = <<<
-        # 1 = <
-        # 2 = >
-        # 3 = >>>
+        self.SetTitle(title)
+        self.SetSize(size)
+        self.fields = fields
 
-        currentFile = al.getField(self.fileNumber, "int")
+        # create the supersizer
+        self.superSizer = wx.BoxSizer(wx.VERTICAL)
 
-        # What the buttons do, including a check to see if we have any files
-        # Also make sure we are not out of bounds
-        if len(fileList) != 0:
+        # create the field sizer
+        self.fieldSizer = wx.GridSizer(
+            rows=self.rows, cols=self.cols, hgap=borderSmall, vgap=borderSmall)
 
-            if buttonIndex == 0:
-                self.fileNumber.SetValue("1")
-            elif buttonIndex == 1 and currentFile >= 2:
-                self.fileNumber.SetValue(
-                    str(al.getField(self.fileNumber, "int") - 1))
-            elif buttonIndex == 2 and currentFile < len(fileList):
-                self.fileNumber.SetValue(
-                    str(al.getField(self.fileNumber, "int") + 1))
-            elif buttonIndex == 3:
-                self.fileNumber.SetValue(str(len(fileList)))
+        # create each field with label
+        for fieldIndex, field in enumerate(self.fields):
+            fieldTitle = field["title"]
+            fieldType = field["type"]
+            ctrl = None
 
-    # Toolbar button handler
-    def onToolbarButton(self, event, buttonIndex):
-        # A mental reminder for the buttons:
-        # 0 = plotButton
-        # 1 = periodButton
-        # 2 = combineButton
-        #### 3 = savePNGAllButton
-        # 3 = savePNGButton
-        # 4 = exportAllButton
-        # 5 = exportButton
+            # Instantiate the label
+            text = wx.StaticText(self, 0, fieldTitle)
+            text.SetFont(mainFont)
+            self.fieldSizer.Add(text)
 
-        # What the buttons do
-        if buttonIndex == 0:
-            self.onPlot()
-        elif buttonIndex == 1:
-            self.periodAnalyse()
-        elif buttonIndex == 2:
-            self.combineCurves()
-        # elif buttonIndex == 3:
-        #     self.onSave(True)
-        elif buttonIndex == 3:
-            self.onSave(False)
-        elif buttonIndex == 4:
-            self.onExport(True)
-        elif buttonIndex == 5:
-            self.onExport(False)
-
-    # DATA! YAY
-    def onPlot(self):
-
-        # which button function do we want
-        if not self.plotOnMain and self.file is not None:
-
-            self.plotOnMain = True
-
-            # update button
-            self.plotButton.SetLabel("Show Header")
-
-            # swap frames
-            self.mainBox.Hide()
-            self.canvas.Show()
-            self.toolbar.Show()
-
-            self.updatePlot(reFold=True)
-
-        # Return to the header
-        elif self.plotOnMain:
-
-            self.plotOnMain = False
-
-            self.plotButton.SetLabel("Plot Graph")
-            self.canvas.Hide()
-            self.toolbar.Hide()
-            self.mainBox.Show()
-            self.updateHeader()
-            self.Layout()
-
-    # Update the graph to show the latest data
-    def updatePlot(self, reFold=False):
-        # lock down the screen to stop awkward visuals
-        self.Freeze()
-
-        # clear plot
-        self.axes.clear()
-
-        # get data, depending on if we are folding or not
-        if self.file.foldingEnable:
-            # save on processing if we dont need to refold the entire thing
-            if reFold:
-                x, y = self.file.fold(self.file.foldingPeriod, bins=None)
+            # instantiate the correct control type
+            if fieldType == "check":
+                ctrl = wx.CheckBox(self, 0, "")
             else:
-                x = self.file.foldX
-                y = self.file.foldY
-        else:
-            x = self.file.rawData.HJD
-            y = self.file.rawData.var
+                ctrl = wx.TextCtrl(self, 0, "")
 
-        # modify data, dont bother normalising if we are already detrending
-        if self.file.detrend:
-            y = al.removeTrend(x, y)
-        elif self.file.normalise:
-            y = al.normalise(x, y)
+            self.fieldSizer.Add(ctrl)
+            self.fields[fieldIndex]["ctrl"] = ctrl
 
-        # Remove macro if necessary
-        if self.file.removeMacro:
-            y = al.removeMacro(x, y)
+        # Create the ok and close buttons
+        self.buttonBox = wx.BoxSizer(wx.HORIZONTAL)
+        self.okButton = wx.Button(self, label='Ok')
+        self.closeButton = wx.Button(self, label='Close')
+        self.buttonBox.Add(self.okButton, wx.SizerFlags(0).Align(wx.RIGHT))
+        self.buttonBox.Add(self.closeButton, wx.SizerFlags(0).Border(wx.LEFT, borderSmall).Align(wx.RIGHT))
 
-        # Plot Time!!!
-        # Plot a line and Xs for each datapoint
-        self.axes.clear()
-        self.axes.plot(x, y, color=(0, 0, 0.1, 0.35), lineStyle=":")
-        self.axes.scatter(x, y, color=(0, 0, 0.1, 0.35), marker="x", label="Data Points")
-
-        # Plot SMA
-        if self.file.SMAEnable:
-            SMAY = al.getSMA(x, y, self.file.SMAPower)
-            self.axes.plot(x, SMAY, "r-", label="SMA")
-
-        # print peaks that we have detected
-        if self.file.showPeaks:
-            self.axes.plot(np.array(x)[self.file.peakIndexes], np.array(y)[self.file.peakIndexes], "*", ms=20, color="green", label="Peaks")
-
-        # plot sinusoid
-        if self.file.sinusoid:
-            y = np.array(al.getSMA(x, y, 50))
-            x = np.array(x)
-            try:
-                parameters, parametersCovariance, = optimise.curve_fit(sinusoid, x, y, p0=[0, periodEst, 0, 0, periodEst * 2, 0])
-                self.axes.plot(x, sinusoid(x, parameters[0], parameters[1], parameters[2], parameters[3], parameters[4], parameters[5]), "b-", label="Fitted Sinusoid")
-            except RuntimeError:
-                wx.MessageBox('Sinusoid could not be fit!', 'Warning', wx.OK | wx.ICON_WARNING)
-                self.file.sinusoid = False
-                self.updateFileInfo()
-
-        # Error bars
-        if not self.file.foldingEnable:
-            self.axes.errorbar(x, y, yerr=self.file.rawData.error, color=(0, 0, 0.1, 0.05))
-
-        # Cosmetic things
-        if self.file.foldingEnable:
-            self.axes.set_xlabel('Cycles', fontsize=18)
-        else:
-            self.axes.set_xlabel('HJD', fontsize=18)
-
-        if self.file.normalise or self.file.detrend or self.file.removeMacro:
-            self.axes.set_ylabel('Normalised Magnitude', fontsize=18)
-        else:
-            self.axes.set_ylabel('Magnitude', fontsize=18)
-
-        # Invert the x value because magnitude is brighter for smaller numbers
-        self.axes.invert_yaxis()
-
-        # add the legend
-        self.axes.legend()
-
-        # redraw the canvas
-        self.canvas.draw()
-
-        # update the toolbar
-        self.toolbar.update()
-
-        # finish up!
-        self.Thaw()
+        # add the fields to the supersizer
+        self.superSizer.Add(self.fieldSizer, wx.SizerFlags(0).Border(wx.ALL, borderSmall))
+        self.superSizer.Add(self.buttonBox, wx.SizerFlags(0).Border(wx.LEFT | wx.RIGHT | wx.BOTTOM, borderSmall).Align(wx.RIGHT))
+        self.SetSizer(self.superSizer)
         self.Layout()
 
-    # Period graph function
-    def periodAnalyse(self):
-        periodFrame().Show()
+        self.okButton.Bind(wx.EVT_BUTTON, self.onOK)
+        self.closeButton.Bind(wx.EVT_BUTTON, self.onClose)
 
-    # Show coordinates for mouse cursor
-    def on_move(self, event):
-        # get the x and y pixel coords
-        x, y = event.xdata, event.ydata
+    def onOK(self, evt):
+        # return field data
+        for fieldIndex, field in enumerate(self.fields):
+            fieldType = field["type"]
+            ctrl = field["ctrl"]
 
-        if event.inaxes:
-            self.xCoord.SetLabel("X: " + str(x))
-            self.yCoord.SetLabel("Y: " + str(y))
-
-    # Update the displayed header and whatnot, when the selected file is changed
-    def onChangeFile(self, event):
-        fileToGoTo = al.getField(self.fileNumber, "int")
-
-        # Check if we are out of bounds
-        if len(fileList) == 0:
-            self.fileNumber.ChangeValue("")
-        elif fileToGoTo > len(fileList):
-            self.fileNumber.ChangeValue(str(len(fileList)))
-        elif fileToGoTo < 0:
-            self.fileNumber.ChangeValue("1")
-        else:
-            # This is the start of a huge process
-            # 1. Get the file
-            self.file = fileList[fileToGoTo - 1]
-
-            # 2. depends on what is onscreen
-            if self.plotOnMain:
-                self.updatePlot(reFold=True)
-                self.updateFileInfo(False)
+            if fieldType == "check":
+                self.fields[fieldIndex]["result"] = ctrl.GetValue()
             else:
-                self.updateFileInfo(True)
+                self.fields[fieldIndex]["result"] = al.getField(ctrl, fieldType)
 
-    # Update the info stuffs
-    def updateFileInfo(self, headerUpdate=False):
+        # IK its messy but RN this is what works
+        mainFrame.dlgReturn = self.fields
 
-        # Only do this if we want to update the header, i.e the headerbox is on the main page
-        if headerUpdate:
-            self.updateHeader()
+        # destroy self
+        self.Destroy()
 
-        # update the JD offset
-        self.notebook.DVPanel.JDOffset.ChangeValue(str(self.file.JDOffset))
+    def onClose(self, evt):
+        mainFrame.dlgReturn = None
+        self.Destroy()
 
-        # update the var offset
-        self.notebook.DVPanel.calibColumn.ChangeValue(
-            str(self.file.calibColumn))
 
-        # update other things
-        self.notebook.DVPanel.JDColumn.ChangeValue(str(self.file.JDColumn))
-        self.notebook.DVPanel.varColumn.ChangeValue(
-            str(self.file.varColumn))
-        self.notebook.DVPanel.errorColumn.ChangeValue(
-            str(self.file.errorColumn))
-        self.notebook.DVPanel.airmassColumn.ChangeValue(
-            str(self.file.airmassColumn))
-        self.notebook.GMPanel.SMAPower.ChangeValue(str(self.file.SMAPower))
-        self.notebook.GMPanel.SMAEnable.SetValue(self.file.SMAEnable)
-        self.notebook.GMPanel.sinusoid.SetValue(self.file.sinusoid)
-        self.notebook.GMPanel.normalise.SetValue(self.file.normalise)
-        self.notebook.GMPanel.detrend.SetValue(self.file.detrend)
-        self.notebook.GMPanel.removeMacro.SetValue(self.file.removeMacro)
-        self.notebook.GMPanel.foldingEnable.SetValue(self.file.foldingEnable)
-        self.notebook.GMPanel.foldingPeriod.ChangeValue(str(self.file.foldingPeriod))
-
-        self.linesOfData.SetLabel(str(len(self.file.rawData.all)))
-        self.startDate.SetLabel(str(al.JDToGC(self.file.rawData.all[0][0]))[:-7])
-        self.endDate.SetLabel(
-            str(al.JDToGC(self.file.rawData.all[(len(self.file.rawData.all) - 1)][0]))[:-7])
-        self.Layout()
-
-    # function to update the header
-    def updateHeader(self):
-        fileLines = self.file.getLines()
-        # Go find the header for this file and print it onto screen
-        header = ""
-
-        if not self.file.oneLine:
-            for lineIndex, line in enumerate(fileLines):
-                if line[0] == "#" or len(line) < 3:
-                    header = header + line
-                else:
-                    header = header + line
-                    header = header + fileLines[lineIndex + 1]
-                    header = header + fileLines[lineIndex + 2]
-
-                    header = header + "..............\n"
-
-                    # all this while stuff is to avoid annoying commented end areas
-                    i = 1
-                    lastLine = fileLines[len(fileLines) - i]
-                    while lastLine[0] == "#":
-                        i += 1
-                        lastLine = fileLines[len(fileLines) - i]
-
-                    header = header + fileLines[len(fileLines) - (i + 2)]
-                    header = header + fileLines[len(fileLines) - (i + 1)]
-                    header = header + lastLine
-                    break
-
-        # What to do if its a oneline
-        else:
-            for line in fileLines:
-                if line[0] == "#" or len(line) < 3:
-                    header = header + line
-                else:
-                    numbers = al.findNumbers(line)
-                    for numberIndex in range(0, self.file.totalColumns):
-                        number = numbers[numberIndex]
-                        header = header + "  " + str(number[0])
-                    header = header + "\n..............\n"
-                    for numberIndex in range(0, self.file.totalColumns):
-                        # Wierd necessary inversion
-                        numberTemp = (
-                            self.file.totalColumns) - numberIndex
-                        number = numbers[-numberTemp]
-                        header = header + "  " + str(number[0])
-        self.mainBox.SetValue(header)
-
-    # What to do on export button press
-    def onExport(self, all):
-        if not all and self.file is not None:
-            export(self.file, self.getUserDirectory())
-
-        elif all and self.file is not None:
-            for file in fileList:
-                export(file)
-
-    # What to do on save plot button press
-    def onSave(self, all):
-        if not all and self.file is not None:
-
-            # Open new file
-            imageDir = self.file.fileDir[:-self.file.extensionLength] + ".png"
-            newFile = Path(imageDir)
-
-            # Make sure it has a unique name
-            i = 1
-            while True:
-                if newFile.is_file():
-                    imageDir = imageDir[:-self.file.extensionLength] + "(" + str(i) + ")" + ".png"
-                    newFile = Path(imageDir)
-                    i += 1
-                else:
-                    break
-
-            # save it
-            self.figure.savefig(imageDir, bbox_inches='tight')
-
-        # elif all and self.file is not None:
-        #     for file in fileList:
-
-        #         imageDir = file.fileDir[:-4] + "_raw.astred"
-        #         self.figure.savefig(imageDir, bbox_inches='tight')
-
-    # You're leaving!?! What!?
-    def OnExit(self, event):
-        self.Destroy()  # Close the frame.
-        quit()
-
-    # The list of fields and buttons to be anabled at the first file entry
-    def enableStuff(self):
-        # Enable buttons and things
-        if mainFrame.fileNumber.GetValue() == "":
-            for directionButton in mainFrame.directionButtons:
-                directionButton.Enable()
-            for toolButton in mainFrame.toolButtons:
-                toolButton.Enable()
-            for detector in mainFrame.notebook.DVPanel.detectionFields:
-                detector.Enable()
-            for detector in mainFrame.notebook.GMPanel.detectionFields:
-                detector.Enable()
-            for checkbox in mainFrame.notebook.GMPanel.checkboxes:
-                checkbox.Enable()
-            for button in mainFrame.notebook.GMPanel.buttons:
-                if button != mainFrame.notebook.GMPanel.OminusC:
-                    button.Enable()
-
-    # Code to combine all data
-    def combineCurves(self):
-        # Let the user specify the new Dir
-        fileDir = self.getUserDirectory()
-
-        if fileDir is None:
-            return
-
-        # instantiate our file as a file class
-        self.superFile = fileConstruct(fileDir, False)
-        self.superFile.foldingEnable = False
-
-        # create a box to store our new data
-        superFileData = []
-
-        # Combine all the data
-        for file in fileList:
-            # normalise the data
-            var = al.normalise(file.rawData.JD, file.rawData.var)
-
-            # Collate it all, with HJD
-            for HJDIndex, HJD in enumerate(file.rawData.HJD):
-                superFileData.append([HJD, var[HJDIndex], file.rawData.error[HJDIndex], file.rawData.airmass[HJDIndex]])
-
-        # sort it
-        superFileData.sort(key=al.sort_key)
-
-        # Give our file its data
-        for dataPoint in superFileData:
-            self.superFile.rawData.HJD.append(dataPoint[0])
-            self.superFile.rawData.var.append(dataPoint[1])
-            self.superFile.rawData.error.append(dataPoint[2])
-            self.superFile.rawData.airmass.append(dataPoint[3])
-
-        # save out the new superfile in astred format
-        export(self.superFile, fileDir)
-
-    # A function to allow the user to specify a save file
-    def getUserDirectory(self, type=".astred"):
-
-        with wx.FileDialog(self, "Save " + type + " file", wildcard="" + type + " files (*" + type + ")|*" + type + "",
-                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
-
-            if fileDialog.ShowModal() == wx.ID_CANCEL:
-                return None    # the user changed their mind
-
-            # save the current contents in the file
-            pathName = fileDialog.GetPath()
-            return pathName
+###### Misc Functions (should be moved to astrolib when done)
 
 
 # a "simple" function for sinusoids used for fitting
@@ -2302,12 +2357,7 @@ def sinusoid(x, a, b, c, d, e, f):
     return (a * np.sin(b * x + c)) + (d * np.sin(e * x + f))
 
 
-# a not-so simple function for a gaussian curve
-def gaussian(x, amplitude, center, width):
-    return amplitude * np.exp(-(x - center) ** 2 / width)
-
-
-# another Gauss function??? in truth i dont know the difference between these two but it just seems better to me. I should have done more maths
+# Guassian curve function
 def gaussianSigma(x, amplitude, mean, sigma):
     return amplitude * np.exp(-np.power(x - mean, 2.) / (2 * np.power(sigma, 2.)))
 
@@ -2496,7 +2546,7 @@ def periodMC(xBox, yBox, errorBox, minFreq, maxFreq, runs, fidelity=5000, displa
     return peakFreq, sigma, missingPeaks
 
 
-# A funtion for exporting
+# A function for exporting
 def export(file, newFileDir=None):
 
     checkName = False
@@ -2537,12 +2587,12 @@ def export(file, newFileDir=None):
         xBox = file.foldX
         yBox = file.foldY
     else:
-        xBox = file.rawData.HJD
-        yBox = file.rawData.var
+        xBox = file.HJD
+        yBox = file.var
 
     # get error and airmass
-    errorBox = file.rawData.error
-    airmassBox = file.rawData.airmass
+    errorBox = file.error
+    airmassBox = file.airmass
 
     # Write data
     for xIndex, x in enumerate(xBox):
@@ -2560,52 +2610,6 @@ def export(file, newFileDir=None):
         # Save it out
         outputFile.write(x + " " + y + " " + error + " " + str(airmass) + "\n")
     outputFile.close()
-
-
-# Function that adds files to the fileList
-def addFiles(fileDirectories):
-    changesMade = False
-    startingLength = len(fileList) + 1
-    firstRun = True if len(fileList) == 0 else False
-
-    # We try because perhaps there is only 1 file being added
-    try:
-        # Iterate through all the new dirs
-        for fileDir in fileDirectories:
-            alreadyExisting = False
-            # Check to make sure we dont already have this file in our list
-            for existingFile in fileList:
-                existingFileDir = existingFile.fileDir
-                if existingFileDir == fileDir:
-                    alreadyExisting = True
-
-            # if they dont exist, add them
-            if not alreadyExisting:
-                fileList.append(fileConstruct(fileDir))
-                changesMade = True
-
-    # Only 1 file
-    except TypeError:
-        try:
-            fileDir = fileDirectories
-            for existingFile in fileList:
-                existingFileDir = existingFile.fileDir
-                if existingFileDir == fileDirectories:
-                    alreadyExisting = True
-
-            if not alreadyExisting:
-                fileList.append(fileConstruct(fileDir))
-                changesMade = True
-        except TypeError:
-            return
-
-    if changesMade:
-        if firstRun:
-            mainFrame.enableStuff()
-        # Sort the fileList in chronological order
-        fileList.sort(key=al.file_sort_key)
-        # Place the mainwindow on the latest file
-        mainFrame.fileNumber.SetValue(str(startingLength))
 
 
 # HALP function
