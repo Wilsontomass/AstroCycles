@@ -1890,8 +1890,7 @@ class mainWindow(wx.Frame):
     def OnOpen(self, event):
         """ Open a file"""
         dirname = ''
-        dlg = wx.FileDialog(self, "Choose a file",
-                            self.dirname, "", "*.*", wx.FD_OPEN)
+        dlg = wx.FileDialog(self, "Choose a file", dirname, "", "*.*", wx.FD_OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             dirname = dlg.GetDirectory()
             addFiles(dirname)
