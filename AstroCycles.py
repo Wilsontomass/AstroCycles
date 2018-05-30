@@ -53,8 +53,8 @@ periodEst = 6
 
 # Global variables DONT CHANGE
 sizerBorder = 10
-windowHeight = 900
-windowWidth = 1600
+windowHeight = 800
+windowWidth = 1400
 fileList = []
 borderLarge = 20
 borderSmall = 5
