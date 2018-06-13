@@ -4,6 +4,14 @@
 		"selected_items":
 		[
 			[
+				"pyton",
+				"Python"
+			],
+			[
+				"ver",
+				"version_info\tinstance"
+			],
+			[
 				"rese",
 				"resetData\tfunction"
 			],
@@ -506,14 +514,6 @@
 			[
 				"getVal",
 				"GetValue"
-			],
-			[
-				"SMA",
-				"SMAPower\tstatement"
-			],
-			[
-				"gra",
-				"Graph"
 			]
 		]
 	},
@@ -523,7 +523,7 @@
 			"file": "AstroCycles.py",
 			"settings":
 			{
-				"buffer_size": 98770,
+				"buffer_size": 99005,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -757,15 +757,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 98770,
+						"buffer_size": 99005,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								15496,
-								15481
+								278,
+								278
 							]
 						],
 						"settings":
@@ -783,6 +783,10 @@
 								{
 									"characters": ".",
 									"selector": "source.python - string - constant.numeric"
+								},
+								{
+									"characters": ".",
+									"selector": "source.python - string - constant.numeric"
 								}
 							],
 							"syntax": "Packages/Python/Python.sublime-syntax",
@@ -790,7 +794,7 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 7323.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
@@ -823,7 +827,7 @@
 						"translation.y": 388.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
@@ -851,7 +855,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 1,
 					"type": "text"
 				}
 			]
