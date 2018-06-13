@@ -1,11 +1,15 @@
-# AstroCyles
+# AstroCycles
 version = 0.1
 # Written by Tomass Wilson in python 3.6
+
+# lets check we are running the right version of Python.
+import sys
+if sys.version_info[0] < 3:
+    raise Exception("Must be using Python 3. You are using Python", str(sys.version_info[0]))
 
 # Import packages
 import AstroLib as al
 from astropy.stats import LombScargle
-import sys
 import linecache
 import numpy as np
 import wx
