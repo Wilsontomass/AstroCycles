@@ -1466,7 +1466,7 @@ class DVPanel(wx.Panel):
                     mainFrame.updatePlot()
 
 
-# Graph Modulation side Panel. Adds functions for a bunch of cool stuff like SMA, normalisation, folding, finding peaks and O - C
+# Graph Modulation side Panel. Adds buttons and fields for a bunch of cool stuff like SMA, normalisation, folding, finding peaks and O - C
 class GMPanel(wx.Panel):
     """This Panel is for changing how the graph is displayed/modulated"""
 
@@ -1797,7 +1797,7 @@ class GMPanel(wx.Panel):
 ###### Periodogram
 
 
-# Gui for showing periodogram, is its own frame and has its own sidepanel plus gizmos like gaussian fits and monte carlo simulations
+# Gui for showing periodogram, is its own frame and has its own sidepanel. Enables gizmos like gaussian fits and monte carlo simulations
 class periodFrame(wx.Frame):
 
     # Initiate
