@@ -488,7 +488,7 @@ class fileConstruct:
             dayDisparity = (currentPeak - zeroPeak) % zeroPeriod
             cycleDisparity = dayDisparity / zeroPeriod
 
-            # idk títs wierd. this exists because it jumps around and stuff, but its not great
+            # idk its wierd. this exists because the data wraps around as of now and this fixes it, but its hacky and should be changed
             if cycleDisparity > 0.5:
                 cycleDisparity -= 1
 
