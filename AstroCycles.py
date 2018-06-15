@@ -109,6 +109,7 @@ def addFiles(fileDirectories):
                 fileList.append(fileConstruct(fileDir))
                 changesMade = True
         except TypeError:
+            print("Error adding files")
             return
 
     if changesMade:
@@ -798,7 +799,7 @@ class mainWindow(wx.Frame):
         dirname = ''
         dlg = wx.FileDialog(self, "Choose a file", dirname, "", "*.*", wx.FD_OPEN)
         if dlg.ShowModal() == wx.ID_OK:
-            dirname = dlg.GetDirectory()
+            dirname = dlg.GetPath()
             addFiles(dirname)
         dlg.Destroy()
 
@@ -1152,7 +1153,7 @@ class mainWindow(wx.Frame):
                 if button != mainFrame.notebook.GMPanel.OminusC:
                     button.Enable()
 
-    # Code to combine all data
+    # Code to combine all data and save it to it's own file
     def combineCurves(self):
         # Let the user specify the new Dir
         fileDir = self.getUserDirectory()
@@ -1203,7 +1204,8 @@ class mainWindow(wx.Frame):
             return pathName
 
 
-# Define File Drop Target class, no idea how this works. enables the drag and drop functionality on the header text box
+# Define File Drop Target class, no idea how this works. enables the drag and drop functionality on the header text box.
+# THIS PROBABLY WONT WORK IN OSX FOR A WHILE. NEEDS TO BE BUNDLED AS AN APP FIRST
 class FileDropTarget(wx.FileDropTarget):
     """ This object implements Drop Target functionality for Files """
 
@@ -1216,17 +1218,8 @@ class FileDropTarget(wx.FileDropTarget):
         self.obj = obj
 
     def OnDropFiles(self, x, y, fileNames):
+        print("Dropped")
         """ Implement File Drop """
-        # Here comes experimenta stuff
-        """ Implement File Drop """
-        # For Demo purposes, this function appends a list of the files dropped at the end of the widget's text
-        # Move Insertion Point to the end of the widget's text
-        # self.obj.SetInsertionPointEnd()
-        # append a list of the file names dropped
-        # self.obj.WriteText("%d file(s) dropped at %d, %d:\n" % (len(fileNames), x, y))
-        # for file in fileNames:
-        #     self.obj.WriteText(file + '\n')
-        # self.obj.WriteText('\n')
 
         addFiles(fileNames)
         return len(fileNames)
@@ -1253,12 +1246,6 @@ class RCNotebook(wx.Notebook):
         # self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGING, self.OnPageChanging)
 
     # def OnPageChanged(self, event):
-    #     old = event.GetOldSelection()
-    #     new = event.GetSelection()
-    #     sel = self.GetSelection()
-    #     event.Skip()
-
-    # def OnPageChanging(self, event):
     #     old = event.GetOldSelection()
     #     new = event.GetSelection()
     #     sel = self.GetSelection()
@@ -2144,6 +2131,7 @@ class periodFrame(wx.Frame):
             self.monteCarloButton.SetLabel("Rerun Monte Carlo")
             # update the info tab to display the new values
             self.updateFileInfo()
+            
 
         # then update the plot
         self.updatePlot()
@@ -2342,7 +2330,7 @@ class functionDialog(wx.Dialog):
             else:
                 self.fields[fieldIndex]["result"] = al.getField(ctrl, fieldType)
 
-        # IK its messy but RN this is what works
+        # IK it shouldn't be using a weird hardcoded dlgreturn variable but RN this is what works
         mainFrame.dlgReturn = self.fields
 
         # destroy self
