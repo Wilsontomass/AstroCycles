@@ -2140,6 +2140,10 @@ class mainWindow(wx.Frame):
         self.axes.plot(x, y, color=(0, 0, 0.1, 0.35), lineStyle=":")
         self.axes.scatter(x, y, color=(0, 0, 0.1, 0.35), marker="x", label="Data Points")
 
+        # Error bars
+        if not self.file.foldingEnable:
+            self.axes.errorbar(x, y, yerr=self.file.rawData.error, color=(0, 0, 0.1, 0.05))
+
         # Plot SMA
         if self.file.SMAEnable:
             SMAY = al.getSMA(x, y, self.file.SMAPower)
@@ -2151,17 +2155,15 @@ class mainWindow(wx.Frame):
 
         # plot sinusoid
         if self.file.sinusoidParameters is not None:
-            y = np.array(al.getSMA(x, y, 50))
             x = np.array(x)
+            y = []
             numberOfSinusoids = self.file.numberOfSinusoids
             a = self.file.sinusoidParameters[:numberOfSinusoids]
             b = self.file.sinusoidParameters[numberOfSinusoids:2 * numberOfSinusoids]
             c = self.file.sinusoidParameters[2 * numberOfSinusoids:3 * numberOfSinusoids]
-            self.axes.plot(x, sinusoidSum(x, a, b, c, numberOfSinusoids), "b-", label="Fitted Sinusoid")
-
-        # Error bars
-        if not self.file.foldingEnable:
-            self.axes.errorbar(x, y, yerr=self.file.rawData.error, color=(0, 0, 0.1, 0.05))
+            for JD in x:
+                y.append(sinusoidSum(JD, a, b, c, numberOfSinusoids))
+            self.axes.plot(x, y, "b-", label="Fitted Sinusoid")
 
         # Cosmetic things
         if self.file.foldingEnable:
