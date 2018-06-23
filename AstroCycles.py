@@ -552,7 +552,6 @@ class fileConstruct:
 
         c = np.zeros(self.numberOfSinusoids)  # the offsets. These we'll keep at 0 to start with
         startingParameters = np.append(np.append(a, b), c)  # put all the parameters together into one long array
-        print(startingParameters)
 
         # now we do the regression and save it to the file
         try:
@@ -561,7 +560,6 @@ class fileConstruct:
             wx.MessageBox('Sinusoid could not be fit!', 'Warning', wx.OK | wx.ICON_WARNING)
             return None
             mainFrame.updateFileInfo()
-        print(self.sinusoidParameters)
 
         # assuming we succesfully fit the sinusoid, we should generate an x and y array for it
         # first we instantiate those varables
