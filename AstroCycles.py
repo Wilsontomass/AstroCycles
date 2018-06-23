@@ -90,17 +90,17 @@ class fileConstruct:
     # Initiate yourself damnit
     def __init__(self, fileDir, exists=True):
 
-        self.exists = exists
+        self.exists = exists  # This is so that if the user tries to add the file again it wont duplicate it. I just think its cool to call self.exists
 
         # Initiate variables
         self.fileDir = fileDir
         self.format = al.getExtension(fileDir)
         self.extensionLength = len(self.format)
 
-        self.identified = False
-        self.oneLine = False
-        self.observer = ""
-        self.JDOffset = 0
+        self.identified = False  # Should we run the analysis function to determine this files structure
+        self.oneLine = False  # is this file just one line of data #### Doesnt support all data types yet
+        self.observer = ""  # just a place to store the name of the observer
+        self.JDOffset = 0  # store variable for if the JD is truncated
         self.JDColumn = 0
         self.calibColumn = None
         self.varColumn = 1
@@ -111,7 +111,9 @@ class fileConstruct:
         self.SMAPower = 200
         self.foldingPeriod = 158.395
 
-        self.sinusoidParameters = None
+        # sinusoid variables
+        self.sinusoid = False  # weather or not we should display a sinusoid for this file
+        self.sinusoidParameters = None  # an array for the parameters of any generated sinusoid. varies in length but always has a multiple of 3 elements
 
         self.SMAEnable = False
         self.normalise = True
@@ -120,7 +122,7 @@ class fileConstruct:
         self.foldingEnable = False
         self.showPeaks = False
 
-        # files for storing fold informations, because it can be calculation intensive
+        # files for storing fold informations, because it can be calculation intensive so we dont want to constantly rerun it
         self.foldX = []
         self.foldY = []
 
@@ -467,8 +469,81 @@ class fileConstruct:
         plt.scatter(cycles, observedMinusCalculated, color=(0, 0, 0.1, 0.75), marker="x")
         plt.show()
 
+    # a function to generate a sinusoid or sum of sinusoids to fit the data
+    def sinusoidFit(self):
+        # first, check if sinusoid is already enebled and disable it if so
+        if self.sinusoid:
+            self.sinusoid = False
+            return
 
-# Define File Drop Target class, no idea how this works
+        # instantiate som variables
+        self.numberOfSinusoids = 1
+        # first lets get our X and Y values. Either the folded curve or the normal one
+        x = []
+        y = []
+        if self.foldingEnable:
+            x = self.foldX
+            y = self.foldY
+        else:
+            x = self.rawData.HJD
+            y = self.rawData.var
+
+        # turn them into numpy arrays
+        x = np.array(x)
+        y = np.array(y)
+
+        # create a dialog to get the settings for the sinusoid function
+        peaksDialog = functionDialog(parent=mainFrame, title="Fit Sinusoid", fields=[{"title": "Number of sinusoids", "type": "int"}])
+        peaksDialog.ShowModal()
+        if mainFrame.dlgReturn is not None:
+            # get the data and reset the return
+            result = mainFrame.dlgReturn
+            mainFrame.dlgReturn = None
+            # Here we get variables from the dialog
+            self.numberOfSinusoids = result[0]["result"]
+        else:
+            return None  # if they pressed cancel then we just return None
+
+        # lets generate the starting paramaters
+        a = np.zeros(self.numberOfSinusoids)  # All of our amplitude values
+        a.fill(y.max())  # these should all start at the max value for the dataset
+
+        b = np.zeros(self.numberOfSinusoids)  # The frequencies. These will be staggered, with the first sinusoid having a frequency of 10 cycles per dataset length, the second having 20 cycles per dataset length and so on
+        datasetLength = self.rawData.HJD[-1] - self.rawData.HJD[0]
+        for index in range(b.size):
+            b[index] = datasetLength * ((index + 1) * 2 * math.pi * 10)  # eg 0.6 days * ((3 + 1) * 3.14 * 2 * 10) = 150 => 40 cycles of the sinusoid across the data
+
+        c = np.zeros(self.numberOfSinusoids)  # the offsets. These we'll keep at 0 to start with
+        startingParameters = np.append(np.append(a, b), c)  # put all the parameters together into one long array
+        print(startingParameters)
+
+        # now we do the regression and save it to the file
+        try:
+            self.sinusoidParameters, self.sinusoidParametersCovariance = optimise.curve_fit(lambda x, *startingParameters: wrapper_fit_func(x, self.numberOfSinusoids, startingParameters), x, y, p0=startingParameters)
+        except RuntimeError:
+            wx.MessageBox('Sinusoid could not be fit!', 'Warning', wx.OK | wx.ICON_WARNING)
+            return None
+            mainFrame.updateFileInfo()
+        print(self.sinusoidParameters)
+
+        # assuming we succesfully fit the sinusoid, we should generate an x and y array for it
+        # first we instantiate those varables
+        self.sinX = x
+        self.sinY = []
+        # we get the values for a b and c. These are contained as one third of the sinusoidParameters variable, in the order [a, b, c], [a, a, b, b, c, c] etc depending on the number of sinusoids
+        a = self.sinusoidParameters[:self.numberOfSinusoids]
+        b = self.sinusoidParameters[self.numberOfSinusoids:2 * self.numberOfSinusoids]
+        c = self.sinusoidParameters[2 * self.numberOfSinusoids:3 * self.numberOfSinusoids]
+        for JD in self.sinX:
+            self.sinY.append(sinusoidSum(JD, a, b, c, self.numberOfSinusoids))
+
+        # now lets save that we have a sinusoid
+        self.sinusoid = True
+        # and return the parameters
+        return self.sinusoidParameters
+
+
+# Define File Drop Target class, no idea how this works #### AND IT DOESNT IN MAC (although the issue is probably elsewhere)
 class FileDropTarget(wx.FileDropTarget):
     """ This object implements Drop Target functionality for Files """
 
@@ -970,46 +1045,23 @@ class GMPanel(wx.Panel):
         # 1 = self.findPeaks
         # 2 = self.OminusC
 
-        # you know the drill
+        # check if these buttons should be handled
         if mainFrame.file is not None:
             shouldUpdate = False
             reFold = False
 
             if detectionIndex == 0:
 
-                # either hide peaks or generate and show new peaks
-                if mainFrame.file.sinusoidParameters is not None:
+                # either hide sinusoid or generate and show new sinusoid
+                if mainFrame.file.sinusoid:
                     self.sinusoid.SetLabel("Fit Sinusoid")
-                    mainFrame.file.sinusoidParameters = None
+                    mainFrame.file.sinusoidFit()
                     shouldUpdate = True
                 else:
-                    # create a dialog to get the settings for the sinusoid function
-                    peaksDialog = functionDialog(parent=self, title="Fit Sinusoid", fields=[{"title": "Number of sinusoids", "type": "int"}])
-                    peaksDialog.ShowModal()
-                    if mainFrame.dlgReturn is not None:
-                        # get the data and reset the return
-                        result = mainFrame.dlgReturn
-                        mainFrame.dlgReturn = None
-                        # something here should get variables from the dialog
-                        numberOfSinusoids = result[0]["result"]
-                        mainFrame.file.numberOfSinusoids = numberOfSinusoids
-
-                        # lets generate the starting paramaters
-                        startingParameters = np.zeros(numberOfSinusoids * 3)
-                        startingParameters.fill(1)
-
-                        # get x and y
-                        x = mainFrame.file.rawData.HJD
-                        y = mainFrame.file.rawData.var
-
-                        # now we do the regression and save it to the file
-                        try:
-                            mainFrame.file.sinusoidParameters, parametersCovariance = optimise.curve_fit(lambda x, *startingParameters: wrapper_fit_func(x, numberOfSinusoids, startingParameters), x, y, p0=startingParameters)
-                            self.sinusoid.SetLabel("Hide Sinusoid")
-                            shouldUpdate = True
-                        except RuntimeError:
-                            wx.MessageBox('Sinusoid could not be fit!', 'Warning', wx.OK | wx.ICON_WARNING)
-                            mainFrame.updateFileInfo()
+                    out = mainFrame.file.sinusoidFit()
+                    if out is not None:
+                        self.sinusoid.SetLabel("Hide Sinusoid")
+                        shouldUpdate = True
 
             if detectionIndex == 1:
 
@@ -2154,16 +2206,8 @@ class mainWindow(wx.Frame):
             self.axes.plot(np.array(x)[self.file.peakIndexes], np.array(y)[self.file.peakIndexes], "*", ms=20, color="green", label="Peaks")
 
         # plot sinusoid
-        if self.file.sinusoidParameters is not None:
-            x = np.array(x)
-            y = []
-            numberOfSinusoids = self.file.numberOfSinusoids
-            a = self.file.sinusoidParameters[:numberOfSinusoids]
-            b = self.file.sinusoidParameters[numberOfSinusoids:2 * numberOfSinusoids]
-            c = self.file.sinusoidParameters[2 * numberOfSinusoids:3 * numberOfSinusoids]
-            for JD in x:
-                y.append(sinusoidSum(JD, a, b, c, numberOfSinusoids))
-            self.axes.plot(x, y, "b-", label="Fitted Sinusoid")
+        if self.file.sinusoid:
+            self.axes.plot(self.file.sinX, self.file.sinY, "b-", label="Fitted Sinusoid")
 
         # Cosmetic things
         if self.file.foldingEnable:
@@ -2433,7 +2477,7 @@ def wrapper_fit_func(x, numberOfSinusoids, *args):
     return sinusoidSum(x, a, b, c, numberOfSinusoids)
 
 
-# A complex function for summed sinusoid fitting
+# A complex function to determine the y value at any given x for a sum of sinusoids
 def sinusoidSum(x, a, b, c, numberOfSinusoids):
     sumVal = 0
     for index in range(numberOfSinusoids):
