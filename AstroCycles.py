@@ -127,17 +127,17 @@ class fileConstruct:
     # Initiate yourself damnit
     def __init__(self, fileDir, exists=True):
 
-        self.exists = exists
+        self.exists = exists  # This is so that if the user tries to add the file again it wont duplicate it. I just think its cool to call self.exists
 
         # Initiate variables
         self.fileDir = fileDir
         self.format = al.getExtension(fileDir)
         self.extensionLength = len(self.format)
 
-        self.identified = False
-        self.oneLine = False
-        self.observer = ""
-        self.JDOffset = 0
+        self.identified = False  # Should we run the analysis function to determine this files structure
+        self.oneLine = False  # is this file just one line of data #### Doesnt support all data types yet
+        self.observer = ""  # just a place to store the name of the observer
+        self.JDOffset = 0  # store variable for if the JD is truncated
         self.JDColumn = 0
         self.calibColumn = None
         self.varColumn = 1
@@ -148,8 +148,11 @@ class fileConstruct:
         self.SMAPower = 200
         self.foldingPeriod = 158.395
 
+        # sinusoid variables
+        self.sinusoid = False  # weather or not we should display a sinusoid for this file
+        self.sinusoidParameters = None  # an array for the parameters of any generated sinusoid. varies in length but always has a multiple of 3 elements
+
         self.SMAEnable = False
-        self.sinusoid = False
         self.normalise = True
         self.detrend = False
         self.removeMacro = False
@@ -502,6 +505,79 @@ class fileConstruct:
 
         plt.scatter(cycles, observedMinusCalculated, color=(0, 0, 0.1, 0.75), marker="x")
         plt.show()
+
+    # a function to generate a sinusoid or sum of sinusoids to fit the data
+    def sinusoidFit(self):
+        # first, check if sinusoid is already enebled and disable it if so
+        if self.sinusoid:
+            self.sinusoid = False
+            return
+
+        # instantiate som variables
+        self.numberOfSinusoids = 1
+        # first lets get our X and Y values. Either the folded curve or the normal one
+        x = []
+        y = []
+        if self.foldingEnable:
+            x = self.foldX
+            y = self.foldY
+        else:
+            x = self.HJD
+            y = self.var
+
+        # turn them into numpy arrays
+        x = np.array(x)
+        y = np.array(y)
+
+        # create a dialog to get the settings for the sinusoid function
+        peaksDialog = functionDialog(parent=mainFrame, title="Fit Sinusoid", fields=[{"title": "Number of sinusoids", "type": "int"}])
+        peaksDialog.ShowModal()
+        if mainFrame.dlgReturn is not None:
+            # get the data and reset the return
+            result = mainFrame.dlgReturn
+            mainFrame.dlgReturn = None
+            # Here we get variables from the dialog
+            self.numberOfSinusoids = result[0]["result"]
+        else:
+            return None  # if they pressed cancel then we just return None
+
+        # lets generate the starting paramaters
+        a = np.zeros(self.numberOfSinusoids)  # All of our amplitude values
+        a.fill(y.max())  # these should all start at the max value for the dataset
+
+        b = np.zeros(self.numberOfSinusoids)  # The frequencies. These will be staggered, with the first sinusoid having a frequency of 10 cycles per dataset length, the second having 20 cycles per dataset length and so on
+        datasetLength = self.HJD[-1] - self.HJD[0]
+        for index in range(b.size):
+            b[index] = datasetLength * ((index + 1) * 2 * math.pi * 10)  # eg 0.6 days * ((3 + 1) * 3.14 * 2 * 10) = 150 => 40 cycles of the sinusoid across the data
+
+        c = np.zeros(self.numberOfSinusoids)  # the offsets. These we'll keep at 0 to start with
+        startingParameters = np.append(np.append(a, b), c)  # put all the parameters together into one long array
+        print(startingParameters)
+
+        # now we do the regression and save it to the file
+        try:
+            self.sinusoidParameters, self.sinusoidParametersCovariance = optimise.curve_fit(lambda x, *startingParameters: wrapper_fit_func(x, self.numberOfSinusoids, startingParameters), x, y, p0=startingParameters)
+        except RuntimeError:
+            wx.MessageBox('Sinusoid could not be fit!', 'Warning', wx.OK | wx.ICON_WARNING)
+            return None
+            mainFrame.updateFileInfo()
+        print(self.sinusoidParameters)
+
+        # assuming we succesfully fit the sinusoid, we should generate an x and y array for it
+        # first we instantiate those varables
+        self.sinX = x
+        self.sinY = []
+        # we get the values for a b and c. These are contained as one third of the sinusoidParameters variable, in the order [a, b, c], [a, a, b, b, c, c] etc depending on the number of sinusoids
+        a = self.sinusoidParameters[:self.numberOfSinusoids]
+        b = self.sinusoidParameters[self.numberOfSinusoids:2 * self.numberOfSinusoids]
+        c = self.sinusoidParameters[2 * self.numberOfSinusoids:3 * self.numberOfSinusoids]
+        for JD in self.sinX:
+            self.sinY.append(sinusoidSum(JD, a, b, c, self.numberOfSinusoids))
+
+        # now lets save that we have a sinusoid
+        self.sinusoid = True
+        # and return the parameters
+        return self.sinusoidParameters
 
     # a function to reset the saved data, for example when we want to collect data using new information
     def resetData(self):
@@ -932,15 +1008,7 @@ class mainWindow(wx.Frame):
 
         # plot sinusoid
         if self.file.sinusoid:
-            y = np.array(al.getSMA(x, y, 50))
-            x = np.array(x)
-            try:
-                parameters, parametersCovariance, = optimise.curve_fit(sinusoid, x, y, p0=[0, periodEst, 0, 0, periodEst * 2, 0])
-                self.axes.plot(x, sinusoid(x, parameters[0], parameters[1], parameters[2], parameters[3], parameters[4], parameters[5]), "b-", label="Fitted Sinusoid")
-            except RuntimeError:
-                wx.MessageBox('Sinusoid could not be fit!', 'Warning', wx.OK | wx.ICON_WARNING)
-                self.file.sinusoid = False
-                self.updateFileInfo()
+            self.axes.plot(self.file.sinX, self.file.sinY, "b-", label="Fitted Sinusoid")
 
         # Error bars
         if not self.file.foldingEnable:
@@ -1033,7 +1101,6 @@ class mainWindow(wx.Frame):
             str(self.file.airmassColumn))
         self.notebook.GMPanel.SMAPower.ChangeValue(str(self.file.SMAPower))
         self.notebook.GMPanel.SMAEnable.SetValue(self.file.SMAEnable)
-        self.notebook.GMPanel.sinusoid.SetValue(self.file.sinusoid)
         self.notebook.GMPanel.normalise.SetValue(self.file.normalise)
         self.notebook.GMPanel.detrend.SetValue(self.file.detrend)
         self.notebook.GMPanel.removeMacro.SetValue(self.file.removeMacro)
@@ -1501,17 +1568,13 @@ class GMPanel(wx.Panel):
         self.itemSizer.Add(self.SMASizer, wx.SizerFlags(
             0).Expand().Border(wx.BOTTOM, borderLarge))
 
-        # Fit Sinusoid gridsizer
-        self.sinusoidSizer = wx.GridSizer(
-            rows=1, cols=2, hgap=borderSmall, vgap=borderSmall)
+        # Fit Sinusoid sizer
+        self.sinusoidSizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        # Fit Sinusoid
-        self.sinusoidText = wx.StaticText(self, 0, "Fit Sinusoid:")
-        self.sinusoidText.SetFont(mainFont)
-        self.sinusoid = wx.CheckBox(self, 0, "")
+        # sinusoid button
+        self.sinusoid = wx.Button(self, 0, "Fit Sinusoid")
         self.sinusoid.Disable()
-        self.sinusoidSizer.Add(self.sinusoidText, 0)
-        self.sinusoidSizer.Add(self.sinusoid, 0)
+        self.sinusoidSizer.Add(self.sinusoid, wx.SizerFlags(0).Align(wx.CENTRE))
 
         # Add to right column
         self.itemSizer.Add(self.sinusoidSizer, wx.SizerFlags(
@@ -1624,7 +1687,7 @@ class GMPanel(wx.Panel):
             detector.Bind(wx.EVT_TEXT, lambda evt, temp=detectionIndex: self.onChangesToDetectionField(evt, temp))
 
         # Create the Checkbox Array
-        self.checkboxes = [self.SMAEnable, self.sinusoid, self.normalise, self.detrend, self.removeMacro, self.foldingEnable]
+        self.checkboxes = [self.SMAEnable, self.normalise, self.detrend, self.removeMacro, self.foldingEnable]
 
         # Bindings for checkboxes
         for checkboxIndex, checkbox in enumerate(self.checkboxes):
@@ -1633,7 +1696,7 @@ class GMPanel(wx.Panel):
                           temp=checkboxIndex: self.onChecked(evt, temp))
 
         # create the buttons array
-        self.buttons = [self.findPeaks, self.OminusC]
+        self.buttons = [self.sinusoid, self.findPeaks, self.OminusC]
 
         # Bindings for buttons
         for checkboxIndex, checkbox in enumerate(self.buttons):
@@ -1677,11 +1740,10 @@ class GMPanel(wx.Panel):
     def onChecked(self, evt, checkboxIndex):
         # A mental reminder for the checkboxes:
         # 0 = self.SMAEnable
-        # 1 = self.sinusoid
-        # 2 = self.normalise
-        # 3 = self.detrend
-        # 4 = self.removeMacro
-        # 5 = self.foldingEnable
+        # 1 = self.normalise
+        # 2 = self.detrend
+        # 3 = self.removeMacro
+        # 4 = self.foldingEnable
 
         if mainFrame.file is not None:
             reFold = False
@@ -1695,30 +1757,24 @@ class GMPanel(wx.Panel):
                     self.SMAPower.Disable()
 
             elif checkboxIndex == 1:
-                if self.sinusoid.IsChecked():
-                    mainFrame.file.sinusoid = True
-                else:
-                    mainFrame.file.sinusoid = False
-
-            elif checkboxIndex == 2:
                 if self.normalise.IsChecked():
                     mainFrame.file.normalise = True
                 else:
                     mainFrame.file.normalise = False
 
-            elif checkboxIndex == 3:
+            elif checkboxIndex == 2:
                 if self.detrend.IsChecked():
                     mainFrame.file.detrend = True
                 else:
                     mainFrame.file.detrend = False
 
-            elif checkboxIndex == 4:
+            elif checkboxIndex == 3:
                 if self.removeMacro.IsChecked():
                     mainFrame.file.removeMacro = True
                 else:
                     mainFrame.file.removeMacro = False
 
-            elif checkboxIndex == 5:
+            elif checkboxIndex == 4:
                 if self.foldingEnable.IsChecked():
                     mainFrame.file.foldingEnable = True
                     mainFrame.file.sinusoid = True
@@ -1737,12 +1793,25 @@ class GMPanel(wx.Panel):
         # 0 = self.findPeaks
         # 1 = self.OminusC
 
-        # you know the drill
+        # check if these buttons should be handled
         if mainFrame.file is not None:
             shouldUpdate = False
             reFold = False
 
             if detectionIndex == 0:
+
+                # either hide sinusoid or generate and show new sinusoid
+                if mainFrame.file.sinusoid:
+                    self.sinusoid.SetLabel("Fit Sinusoid")
+                    mainFrame.file.sinusoidFit()
+                    shouldUpdate = True
+                else:
+                    out = mainFrame.file.sinusoidFit()
+                    if out is not None:
+                        self.sinusoid.SetLabel("Hide Sinusoid")
+                        shouldUpdate = True
+
+            elif detectionIndex == 1:
 
                 # either hide peaks or generate and show new peaks
                 if mainFrame.file.showPeaks is True:
@@ -1767,7 +1836,7 @@ class GMPanel(wx.Panel):
                         self.OminusC.Enable()
                         shouldUpdate = True
 
-            elif detectionIndex == 1 and mainFrame.file.showPeaks is True:
+            elif detectionIndex == 2 and mainFrame.file.showPeaks is True:
                 # create a dialog to get the settings for the O - c function
                 OminusCDialog = functionDialog(parent=self, title="Observed Minus Calculated Period Graph", fields=[{"title": "Observed Period", "type": "float"}])
                 OminusCDialog.ShowModal()
@@ -2181,6 +2250,23 @@ class periodPanel(wx.Panel):
         self.itemSizer.Add(self.minMaxSizer, wx.SizerFlags(
             0).Expand().Border(wx.BOTTOM, borderLarge))
 
+        # functionButtons Gridsizer
+        self.functionButtons = wx.GridSizer(
+            rows=1, cols=2, hgap=borderSmall, vgap=borderSmall)
+
+        # findPeaks button
+        self.findPeaks = wx.Button(self, 0, "Find Peaks")
+        self.functionButtons.Add(self.findPeaks, wx.SizerFlags(0).Align(wx.CENTRE))
+
+        # rescaleErrors button
+        self.rescaleErrors = wx.Button(self, 0, "Rescale Errors")
+        self.rescaleErrors.Disable()
+        self.functionButtons.Add(self.rescaleErrors, wx.SizerFlags(0).Align(wx.CENTRE))
+
+        # Add to right column
+        self.itemSizer.Add(self.functionButtons, wx.SizerFlags(
+            0).Expand().Border(wx.BOTTOM, borderLarge))
+
         self.panelSizer.Add(self.itemSizer, wx.SizerFlags(
             0).Border(wx.LEFT, borderLarge))
 
@@ -2205,6 +2291,15 @@ class periodPanel(wx.Panel):
                 # fourth time i ever use lambda, WTF
                 checkbox.Bind(wx.EVT_CHECKBOX, lambda evt,
                               temp=checkboxIndex: self.onChecked(evt, temp))
+
+        # create the buttons array
+        self.buttons = [self.findPeaks, self.rescaleErrors]
+
+        # Bindings for buttons
+        for checkboxIndex, checkbox in enumerate(self.buttons):
+            # eighth time i ever use lambda, WTF
+            checkbox.Bind(wx.EVT_BUTTON, lambda evt,
+                          temp=checkboxIndex: self.onButton(evt, temp))
 
     # detection field handler
     def onChangesToDetectionField(self, parent, evt, detectionIndex):
@@ -2245,6 +2340,75 @@ class periodPanel(wx.Panel):
 
             if checkboxIndex == 0:
                 None
+
+    # button handler
+    def onButton(self, evt, detectionIndex):
+        # A mental reminder for the fields:
+        # 0 = self.findPeaks
+        # 1 = self.rescaleErrors
+
+        ######## THESE DONT WORK RIGHT NOW SO THEIR FUNCTIONALITY IS DISABLED
+        None
+
+        # # Different handling for each button
+        # if mainFrame.file is not None:
+        #     shouldUpdate = False
+
+        #     if detectionIndex == 0:
+
+        #         # either hide peaks or generate and show new peaks
+        #         if self.parent.showPeaks is True:
+        #             self.parent.showPeaks = False
+        #             self.findPeaks.SetLabel("Find Peaks")
+        #             self.rescaleErrors.Disable()
+        #             shouldUpdate = True
+        #         else:
+        #             # create a dialog to get the settings for the peaks function
+        #             peaksDialog = functionDialog(parent=self, title="Find Peaks", fields=[{"title": "min", "type": "int"}, {"title": "max", "type": "int"}, {"title": "Number of sinusoids:", "type": "int"}])
+        #             peaksDialog.ShowModal()
+        #             if mainFrame.dlgReturn is not None:
+        #                 # get the data and reset the return
+        #                 result = mainFrame.dlgReturn
+        #                 mainFrame.dlgReturn = None
+        #                 # Here we get the number of sinusoids from the dialog
+        #                 min = result[0]["result"]
+        #                 max = result[1]["result"]
+        #                 numberOfSinusoids = result[2]["result"]
+
+        #                 # get the x and y data for the periodogram
+        #                 frequency = self.parent.frequency
+        #                 power = self.parent.power
+
+        #                 # get the peak frequencies indexes
+        #                 peakIndexes = find_peaks_cwt(np.array([x * -1 for x in power]), np.arange(min, max))
+        #                 # we do this because we only want a certain number of maximum peaks
+        #                 self.parent.peakIndexes = np.argsort(frequency[peakIndexes])[-numberOfSinusoids:]
+        #                 # and lets also save the actual peak frequencies
+        #                 self.parent.peakFreqs = frequency[self.parent.peakIndexes]
+
+        #                 # Allow the periodogram to display those peaks
+        #                 self.parent.showPeaks = True
+
+        #                 self.findPeaks.SetLabel("Hide Peaks")
+        #                 self.rescaleErrors.Enable()
+        #                 shouldUpdate = True
+
+        #     elif detectionIndex == 1 and self.parent.showPeaks is True:
+        #         # create a dialog to get the settings for the O - c function
+        #         rescaleErrorsDialog = functionDialog(parent=self, title="Observed Minus Calculated Period Graph", fields=[{"title": "Observed Period", "type": "float"}])
+        #         rescaleErrorsDialog.ShowModal()
+        #         if mainFrame.dlgReturn is not None:
+        #             # Get the data and reset the return
+        #             result = mainFrame.dlgReturn
+        #             mainFrame.dlgReturn = None
+        #             # Get observed from the dialog
+        #             observed = result[0]["result"]
+        #             # Run the graph
+        #             mainFrame.file.rescaleErrors(observed)
+
+        #     # Make sure the source has something valid in it and should update the plots n stuff
+        #     if shouldUpdate:
+        #         self.parent.updatePlot()
 
 
 ###### Window Constructors
@@ -2347,6 +2511,21 @@ class functionDialog(wx.Dialog):
 # a "simple" function for sinusoids used for fitting
 def sinusoid(x, a, b, c, d, e, f):
     return (a * np.sin(b * x + c)) + (d * np.sin(e * x + f))
+
+
+# A wrapper function so that scipy optimise can take a variable amount of input parameters. Used so that we can sum an arbitrary amount of sinusoids
+def wrapper_fit_func(x, numberOfSinusoids, *args):
+    a, b, c = list(args[0][:numberOfSinusoids]), list(args[0][numberOfSinusoids:2 * numberOfSinusoids]), list(args[0][2 * numberOfSinusoids:3 * numberOfSinusoids])
+    return sinusoidSum(x, a, b, c, numberOfSinusoids)
+
+
+# A complex function to determine the y value at any given x for a sum of sinusoids
+def sinusoidSum(x, a, b, c, numberOfSinusoids):
+    sumVal = 0
+    for index in range(numberOfSinusoids):
+        sumVal += (a[index] * np.sin(b[index] * x + c[index]))
+
+    return sumVal
 
 
 # Guassian curve function
