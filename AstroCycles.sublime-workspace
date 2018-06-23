@@ -4,18 +4,6 @@
 		"selected_items":
 		[
 			[
-				"pyton",
-				"Python"
-			],
-			[
-				"ver",
-				"version_info\tinstance"
-			],
-			[
-				"rese",
-				"resetData\tfunction"
-			],
-			[
 				"number",
 				"numberOfSinusoids\tstatement"
 			],
@@ -514,6 +502,18 @@
 			[
 				"getVal",
 				"GetValue"
+			],
+			[
+				"SMA",
+				"SMAPower\tstatement"
+			],
+			[
+				"gra",
+				"Graph"
+			],
+			[
+				"wie",
+				"weight"
 			]
 		]
 	},
@@ -523,16 +523,7 @@
 			"file": "AstroCycles.py",
 			"settings":
 			{
-				"buffer_size": 99005,
-				"encoding": "UTF-8",
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "AstroLib.py",
-			"settings":
-			{
-				"buffer_size": 19884,
+				"buffer_size": 105893,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -718,7 +709,6 @@
 		"case_sensitive": true,
 		"find_history":
 		[
-			"rawData.",
 			"[0]",
 			"args",
 			"numberOfSinusoids",
@@ -737,7 +727,6 @@
 		"regex": false,
 		"replace_history":
 		[
-			""
 		],
 		"reverse": false,
 		"show_context": true,
@@ -757,15 +746,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 99005,
+						"buffer_size": 105893,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								278,
-								278
+								34833,
+								34833
 							]
 						],
 						"settings":
@@ -779,14 +768,6 @@
 								{
 									"characters": ".",
 									"selector": "source.python - string - constant.numeric"
-								},
-								{
-									"characters": ".",
-									"selector": "source.python - string - constant.numeric"
-								},
-								{
-									"characters": ".",
-									"selector": "source.python - string - constant.numeric"
 								}
 							],
 							"syntax": "Packages/Python/Python.sublime-syntax",
@@ -794,7 +775,7 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 6930.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
@@ -802,36 +783,6 @@
 				},
 				{
 					"buffer": 1,
-					"file": "AstroLib.py",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 19884,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1325,
-								1325
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Python/Python.sublime-syntax",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 388.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 2,
-					"type": "text"
-				},
-				{
-					"buffer": 2,
 					"file": "AstroCycles.sublime-project",
 					"semi_transient": false,
 					"settings":
@@ -908,7 +859,7 @@
 	"project": "AstroCycles.sublime-project",
 	"replace":
 	{
-		"height": 72.0
+		"height": 52.0
 	},
 	"save_all_on_build": true,
 	"select_file":
