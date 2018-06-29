@@ -548,14 +548,17 @@ class fileConstruct:
         b = np.zeros(self.numberOfSinusoids)  # The frequencies. These will be staggered, with the first sinusoid having a frequency of 10 cycles per dataset length, the second having 20 cycles per dataset length and so on
         datasetLength = self.HJD[-1] - self.HJD[0]
         for index in range(b.size):
-            b[index] = datasetLength * ((index + 1) * 2 * math.pi * 10)  # eg 0.6 days * ((3 + 1) * 3.14 * 2 * 10) = 150 => 40 cycles of the sinusoid across the data
+            b[index] = ((index + 1) * 2 * math.pi * 10) / datasetLength  # eg 0.6 days * ((3 + 1) * 3.14 * 2 * 10) = 150 => 40 cycles of the sinusoid across the data
 
         c = np.zeros(self.numberOfSinusoids)  # the offsets. These we'll keep at 0 to start with
         startingParameters = np.append(np.append(a, b), c)  # put all the parameters together into one long array
 
+        # for debugging or because you might want it lets save the starting parameters so we can plot a graph of this starting sinusoid, so we can compare the fitted vs unfitted versions
+        self.startingParameters = startingParameters
+
         # now we do the regression and save it to the file
         try:
-            self.sinusoidParameters, self.sinusoidParametersCovariance = optimise.curve_fit(lambda x, *startingParameters: wrapper_fit_func(x, self.numberOfSinusoids, startingParameters), x, y, p0=startingParameters)
+            self.sinusoidParameters, self.sinusoidParametersCovariance = optimise.curve_fit(lambda x, *startingParameters: wrapper_fit_func(x, self.numberOfSinusoids, startingParameters), x, y, p0=startingParameters, ftol=(10 ** -15), xtol=(10 ** -15), gtol=(10 ** -15), maxfev=1000000)
         except RuntimeError:
             wx.MessageBox('Sinusoid could not be fit!', 'Warning', wx.OK | wx.ICON_WARNING)
             return None
@@ -577,6 +580,24 @@ class fileConstruct:
         # and return the parameters
         return self.sinusoidParameters
 
+    # a function to gereate the sinusoid from the startingparameters and return the x and y arrays
+    def startingSinusoid(self):
+        x = []
+        y = []
+        if self.foldingEnable:
+            x = self.foldX
+        else:
+            x = self.HJD
+
+        # we get the values for a b and c. These are contained as one third of the startingParameters variable, in the order [a, b, c], [a, a, b, b, c, c] etc depending on the number of sinusoids
+        a = self.startingParameters[:self.numberOfSinusoids]
+        b = self.startingParameters[self.numberOfSinusoids:2 * self.numberOfSinusoids]
+        c = self.startingParameters[2 * self.numberOfSinusoids:3 * self.numberOfSinusoids]
+        for JD in x:
+            y.append(sinusoidSum(JD, a, b, c, self.numberOfSinusoids))
+
+        return x, y
+
     # a function to reset the saved data, for example when we want to collect data using new information
     def resetData(self):
         self.all = []
@@ -592,7 +613,6 @@ class fileConstruct:
 
 # The class for the main window, the first thing you see when you boot up
 class mainWindow(wx.Frame):
-    """ We simply derive a new class of Frame. """
 
     def __init__(self, parent, title):
         self.file = None
@@ -867,7 +887,7 @@ class mainWindow(wx.Frame):
         dlg.ShowModal()  # Show it
         dlg.Destroy()  # finally destroy it when finished.
 
-    # Oof, someone used the ancient "open" command, what a nerd
+    # Oof, someone used the ancient "open" command, what a nerd ###### OR an osx user LOL poor people
     def OnOpen(self, event):
         """ Open a file"""
         dirname = ''
@@ -992,7 +1012,7 @@ class mainWindow(wx.Frame):
         # Plot Time!!!
         # Plot a line and Xs for each datapoint
         self.axes.clear()
-        self.axes.plot(x, y, color=(0, 0, 0.1, 0.35), lineStyle=":")
+        # self.axes.plot(x, y, color=(0, 0, 0.1, 0.35), lineStyle=":")  # Helena doesnt like the linegraph
         self.axes.scatter(x, y, color=(0, 0, 0.1, 0.35), marker="x", label="Data Points")
 
         # Plot SMA
@@ -1007,6 +1027,11 @@ class mainWindow(wx.Frame):
         # plot sinusoid
         if self.file.sinusoid:
             self.axes.plot(self.file.sinX, self.file.sinY, "b-", label="Fitted Sinusoid")
+
+            # plot the startingparameters sinusoid if we want it
+            if True:
+                sinX, sinY = self.file.startingSinusoid()
+                self.axes.plot(sinX, sinY, color=(0, 0, 0.1), lineStyle=":", label="Starting Sinusoid")
 
         # Error bars
         if not self.file.foldingEnable:
