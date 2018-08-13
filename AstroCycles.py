@@ -1776,7 +1776,7 @@ class GMPanel(wx.Panel):
                 if self.foldingEnable.IsChecked():
                     mainFrame.file.foldingEnable = True
                     mainFrame.file.sinusoid = True
-                    self.sinusoid.SetValue(True)
+                    # self.sinusoid.SetValue(True)  #### Disabled BC sinusoid is no longer a simple 1 function checkbox but is now a button
                     reFold = True
                 else:
                     mainFrame.file.foldingEnable = False
