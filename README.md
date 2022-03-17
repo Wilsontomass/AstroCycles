@@ -1,5 +1,7 @@
 # AstroCycles
-A tool for analysing lightcurve data from distant stars, with a focus on detecting and analysing periodicity
+A tool for analysing lightcurve data from distant stars, with a focus on detecting and analysing periodicity.
+
+I wrote this when I was 18 and terrible at python don't @ me
 
 Written by Tomass Wilson in python 3.6
 
